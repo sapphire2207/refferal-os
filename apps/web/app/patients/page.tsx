@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search, PlusCircle, Users, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface PatientRecord {
   id: string;
@@ -27,15 +28,16 @@ interface PatientRecord {
 
 export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 350);
 
   const { data, isLoading, refetch, isFetching } = useQuery<{
     items: PatientRecord[];
     total: number;
   }>({
-    queryKey: ['patients', { search: searchQuery }],
+    queryKey: ['patients', { search: debouncedSearch }],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       params.set('limit', '50');
       return apiClient.get<{ items: PatientRecord[]; total: number }>(`/patients?${params.toString()}`);
     },

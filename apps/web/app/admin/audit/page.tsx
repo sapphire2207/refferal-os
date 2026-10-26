@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollText, Search, ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface AuditRecord {
   id: string;
@@ -25,15 +26,18 @@ export default function AuditAdminPage() {
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
 
+  const debouncedAction = useDebounce(actionFilter, 350);
+  const debouncedEntity = useDebounce(entityFilter, 350);
+
   const { data, isLoading, refetch, isFetching } = useQuery<{
     items: AuditRecord[];
     total: number;
   }>({
-    queryKey: ['audit-logs', { action: actionFilter, entityType: entityFilter }],
+    queryKey: ['audit-logs', { action: debouncedAction, entityType: debouncedEntity }],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (actionFilter.trim()) params.set('action', actionFilter.trim());
-      if (entityFilter.trim()) params.set('entityType', entityFilter.trim());
+      if (debouncedAction.trim()) params.set('action', debouncedAction.trim());
+      if (debouncedEntity.trim()) params.set('entityType', debouncedEntity.trim());
       params.set('limit', '50');
       return apiClient.get<{ items: AuditRecord[]; total: number }>(`/audit?${params.toString()}`);
     },

@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
 import { toast } from 'sonner';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface ReferralRecord {
   id: string;
@@ -79,17 +80,20 @@ export default function ReferralsPage() {
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
+  // Debounce search query by 350ms to prevent spamming backend requests on every keystroke
+  const debouncedSearch = useDebounce(searchQuery, 350);
+
   // Fetch referrals from real backend API
   const { data, isLoading, refetch, isFetching } = useQuery<{
     items: ReferralRecord[];
     total: number;
   }>({
-    queryKey: ['referrals', { stage: stageFilter, priority: priorityFilter, search: searchQuery }],
+    queryKey: ['referrals', { stage: stageFilter, priority: priorityFilter, search: debouncedSearch }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (stageFilter !== 'ALL') params.set('stage', stageFilter);
       if (priorityFilter !== 'ALL') params.set('priority', priorityFilter);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       params.set('limit', '100');
       return apiClient.get<{ items: ReferralRecord[]; total: number }>(`/referrals?${params.toString()}`);
     },
@@ -141,6 +145,16 @@ export default function ReferralsPage() {
       if (context?.previousData) {
         queryClient.setQueriesData({ queryKey: ['referrals'] }, context.previousData);
       }
+
+      if (err?.status === 409) {
+        toast.warning('Concurrent Modification Detected', {
+          description:
+            'Another clinician recently modified this referral. The board has been updated with the newest version.',
+        });
+        queryClient.invalidateQueries({ queryKey: ['referrals'] });
+        return;
+      }
+
       toast.error('Stage Gate Rejected Transition', {
         description: err.message || 'Workflow gate check failed. Please ensure prerequisite steps are completed.',
       });

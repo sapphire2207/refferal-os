@@ -309,8 +309,21 @@ export default function SchedulePage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => updateStatusMutation.mutate({ id: apt.id, status: 'NO_SHOW', notes: 'Patient not home' })}
-                          className="h-7 text-[10px] text-amber-600"
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                'Marking an appointment as NO_SHOW sets the referral work status to BLOCKED_NEEDS_INFO for patient outreach. Proceed?',
+                              )
+                            ) {
+                              return;
+                            }
+                            updateStatusMutation.mutate({
+                              id: apt.id,
+                              status: 'NO_SHOW',
+                              notes: 'Patient not home',
+                            });
+                          }}
+                          className="h-7 text-[10px] text-amber-600 hover:bg-amber-500/10"
                         >
                           No Show
                         </Button>

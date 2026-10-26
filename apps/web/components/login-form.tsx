@@ -21,32 +21,38 @@ const DEMO_PERSONAS: DemoPersona[] = [
   {
     label: 'Single-Role: Intake Specialist',
     role: 'INTAKE_SPECIALIST',
-    email: 'intake@healsonwheels.com',
+    email: 'intake@heals.health',
     workspaceDescription: 'Enters directly into Intake Workspace (no switcher)',
   },
   {
     label: 'Single-Role: Clinical Reviewer',
     role: 'CLINICAL_REVIEWER',
-    email: 'reviewer@healsonwheels.com',
+    email: 'reviewer@heals.health',
     workspaceDescription: 'Enters directly into Clinical Review Workspace',
+  },
+  {
+    label: 'Single-Role: Scheduler',
+    role: 'SCHEDULER',
+    email: 'scheduler@heals.health',
+    workspaceDescription: 'Enters directly into Appointment Scheduling Queue',
   },
   {
     label: 'Single-Role: Nurse Practitioner',
     role: 'NURSE_PRACTITIONER',
-    email: 'np@healsonwheels.com',
+    email: 'np@heals.health',
     workspaceDescription: 'Enters directly into Mobile Encounters & SOAP Notes',
   },
   {
-    label: 'Multi-Role: Clinical Director',
-    role: 'REVIEWER + QA + SCHEDULER',
-    email: 'director@healsonwheels.com',
-    workspaceDescription: 'Has 3 roles: Review, Scheduling, QA with top-right switcher',
+    label: 'Single-Role: Billing Coordinator',
+    role: 'BILLING_COORDINATOR',
+    email: 'billing@heals.health',
+    workspaceDescription: 'Enters directly into Superbills & Claims Processing',
   },
   {
-    label: 'System Administrator',
+    label: 'System Administrator (Multi-Role)',
     role: 'ADMIN',
-    email: 'admin@healsonwheels.com',
-    workspaceDescription: 'Full access to all workspaces, users & audit logs',
+    email: 'admin@heals.health',
+    workspaceDescription: 'Full access to all 9 workspaces with top-right switcher',
   },
 ];
 
@@ -89,8 +95,19 @@ export function LoginForm() {
 
   const handleSelectPersona = (persona: DemoPersona) => {
     setEmail(persona.email);
-    setPassword('HealsSecure123!');
+    setPassword('Admin@2024!');
     setErrorMessage(null);
+  };
+
+  const handleQuickLogin = async (persona: DemoPersona) => {
+    setEmail(persona.email);
+    setPassword('Admin@2024!');
+    setErrorMessage(null);
+    try {
+      await login(persona.email, 'Admin@2024!');
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Login failed.');
+    }
   };
 
   return (
@@ -125,7 +142,7 @@ export function LoginForm() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="staff@healsonwheels.com"
+                    placeholder="staff@heals.health"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -136,8 +153,8 @@ export function LoginForm() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
-                    <span className="text-xs text-muted-foreground hover:underline cursor-pointer">
-                      Forgot password?
+                    <span className="text-xs text-muted-foreground font-mono">
+                      (All test accounts: Admin@2024!)
                     </span>
                   </div>
                   <Input
@@ -218,38 +235,57 @@ export function LoginForm() {
         </CardContent>
       </Card>
 
-      {/* Quick Demo Role Selector for pair evaluation and testing */}
-      <Card className="border border-border/60 bg-muted/30">
-        <CardHeader className="py-3 px-4">
+      {/* Quick 1-Click Role Logins for testing and review */}
+      <Card className="border border-border/80 bg-card shadow-sm">
+        <CardHeader className="py-3 px-4 border-b border-border/60">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Demo Personas (Single vs Multi-Role)
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+              ⚡ Quick 1-Click Test Logins
             </span>
-            <Badge variant="outline" className="text-[10px] uppercase">
-              Quick Test
+            <Badge variant="outline" className="text-[10px] font-mono">
+              PW: Admin@2024!
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="px-4 pb-4 pt-0 space-y-2">
+        <CardContent className="px-4 py-3 space-y-2">
           {DEMO_PERSONAS.map((persona) => (
-            <button
+            <div
               key={persona.email}
-              type="button"
-              onClick={() => handleSelectPersona(persona)}
-              className="w-full text-left p-2.5 rounded-lg border border-border/50 bg-background hover:bg-accent/50 transition-colors flex flex-col gap-0.5 text-xs group"
+              className="p-2.5 rounded-lg border border-border/60 bg-muted/20 flex items-center justify-between gap-2 text-xs"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground group-hover:text-primary">
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-foreground truncate">
                   {persona.label}
                 </span>
-                <span className="text-[10px] font-mono text-muted-foreground">
+                <span className="text-[11px] font-mono text-muted-foreground truncate">
                   {persona.email}
                 </span>
+                <span className="text-[10px] text-muted-foreground/80 mt-0.5 line-clamp-1">
+                  {persona.workspaceDescription}
+                </span>
               </div>
-              <span className="text-muted-foreground text-[11px]">
-                {persona.workspaceDescription}
-              </span>
-            </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSelectPersona(persona)}
+                  className="h-7 text-[10px] px-2"
+                  disabled={isLoading}
+                >
+                  Fill
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => handleQuickLogin(persona)}
+                  className="h-7 text-[10px] px-2.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black font-semibold"
+                  disabled={isLoading}
+                >
+                  Sign In
+                </Button>
+              </div>
+            </div>
           ))}
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,6 +11,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+
+  // Security Headers via Helmet
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Swagger UI compatibility
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
 
   const configService = app.get(ConfigService);
   const port = configService.get('API_PORT', 3001);

@@ -303,7 +303,16 @@ export default function BillingPage() {
                         <>
                           <Button
                             size="sm"
-                            onClick={() => adjudicateMutation.mutate({ id: claim.id, status: 'PAID' })}
+                            onClick={() => {
+                              if (
+                                !window.confirm(
+                                  'Marking a claim as PAID permanently closes the referral case as COMPLETED. Proceed?',
+                                )
+                              ) {
+                                return;
+                              }
+                              adjudicateMutation.mutate({ id: claim.id, status: 'PAID' });
+                            }}
                             className="h-7 text-[10px] bg-emerald-600 text-white hover:bg-emerald-700"
                           >
                             Mark Paid (Close Case)
@@ -311,13 +320,18 @@ export default function BillingPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
+                              const reason = window.prompt(
+                                'Enter official claim denial or rejection code/reason:',
+                                'Coordination of benefits required',
+                              );
+                              if (!reason) return;
                               adjudicateMutation.mutate({
                                 id: claim.id,
                                 status: 'DENIED',
-                                denialReason: 'Coordination of benefits required',
-                              })
-                            }
+                                denialReason: reason,
+                              });
+                            }}
                             className="h-7 text-[10px] text-rose-600 border-rose-500/30 hover:bg-rose-500/10"
                           >
                             Mark Denied

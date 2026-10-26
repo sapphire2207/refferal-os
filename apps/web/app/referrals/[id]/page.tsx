@@ -379,7 +379,17 @@ export default function ReferralDetailPage() {
                   />
                   <Button
                     size="sm"
-                    onClick={() => reviewMutation.mutate()}
+                    onClick={() => {
+                      if (
+                        reviewDecision === ClinicalReviewDecision.REJECT &&
+                        !window.confirm(
+                          'Rejecting a referral permanently closes the clinical case with outcome REJECTED. Are you sure you wish to proceed?',
+                        )
+                      ) {
+                        return;
+                      }
+                      reviewMutation.mutate();
+                    }}
                     disabled={reviewMutation.isPending}
                     className="h-8 text-xs px-3"
                   >

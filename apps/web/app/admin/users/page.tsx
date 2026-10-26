@@ -297,14 +297,22 @@ export default function UsersAdminPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() =>
+                            onClick={() => {
+                              if (
+                                !u.isSuspended &&
+                                !window.confirm(
+                                  `Are you sure you want to suspend ${u.firstName} ${u.lastName}? This will immediately terminate all active sessions and revoke access.`,
+                                )
+                              ) {
+                                return;
+                              }
                               toggleStatusMutation.mutate({
                                 id: u.id,
                                 isSuspended: !u.isSuspended,
-                              })
-                            }
+                              });
+                            }}
                             className={`h-6 text-[10px] px-2 ${
-                              u.isSuspended ? 'text-emerald-600' : 'text-destructive'
+                              u.isSuspended ? 'text-emerald-600' : 'text-destructive hover:bg-destructive/10'
                             }`}
                           >
                             {u.isSuspended ? 'Reactivate' : 'Suspend (Kill Sessions)'}
