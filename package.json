@@ -25,12 +25,15 @@
     "prisma:studio": "npm run prisma:studio -w apps/api",
     "db:seed": "npm run db:seed -w apps/api",
     "db:reset": "npm run db:reset -w apps/api",
+    "test:db": "node test-db-connection.js",
     "prepare": "husky install"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",
+    "@types/pg": "^8.23.1",
     "husky": "^8.0.3",
     "lint-staged": "^15.2.0",
+    "pg": "^8.23.1",
     "prettier": "^3.2.4",
     "typescript": "^5.3.3"
   },

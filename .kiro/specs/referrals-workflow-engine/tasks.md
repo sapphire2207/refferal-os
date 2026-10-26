@@ -38,7 +38,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 16.5_
   - _Estimated time: 15 minutes_
 
-- [ ] 1.5 Generate and run Prisma migrations
+- [x] 1.5 Generate and run Prisma migrations
   - Run `npx prisma migrate dev --name add-workflow-tables`
   - Verify migration success
   - Run `npx prisma generate` to update Prisma client
@@ -121,7 +121,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 4: Validation Service
 
-- [ ] 4.1 Create ValidationService stub and module setup
+- [x] 4.1 Create ValidationService stub and module setup
   - Create `apps/api/src/modules/referrals/services/validation.service.ts`
   - Add @Injectable decorator
   - Inject PrismaService and RedisService
@@ -129,7 +129,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 30 minutes_
 
-- [ ] 4.2 Implement checkAuthorization() method
+- [x] 4.2 Implement checkAuthorization() method
   - Implement permission checking logic
   - Use ROLE_PERMISSIONS mapping
   - Add Redis caching for permission lookups (5 min TTL)
@@ -145,7 +145,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 14.1-14.3_
   - _Estimated time: 1 hour_
 
-- [ ] 4.4 Implement checkScope() method
+- [x] 4.4 Implement checkScope() method
   - Implement scope validation logic
   - Check site, state, legalEntity matching
   - Handle ADMIN role bypass
@@ -163,7 +163,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.2, 14.3-14.5_
   - _Estimated time: 45 minutes_
 
-- [ ] 4.6 Implement validateTransitionPath() method
+- [x] 4.6 Implement validateTransitionPath() method
   - Check if transition exists in ALLOWED_TRANSITIONS
   - Return boolean indicating valid path
   - _Requirements: 1.3_
@@ -178,7 +178,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.3_
   - _Estimated time: 30 minutes_
 
-- [ ] 4.8 Implement validateVersion() method
+- [x] 4.8 Implement validateVersion() method
   - Compare requested version with current referral version
   - Return ValidationResult with errors if mismatch
   - _Requirements: 1.7, 8.1-8.3_
@@ -195,7 +195,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 5: Gateway Check Service
 
-- [ ] 5.1 Create GatewayCheckService stub
+- [x] 5.1 Create GatewayCheckService stub
   - Create `apps/api/src/modules/referrals/services/gateway-check.service.ts`
   - Add @Injectable decorator
   - Inject PrismaService
@@ -203,7 +203,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 20 minutes_
 
-- [ ] 5.2 Implement checkRequiredFields() method
+- [-] 5.2 Implement checkRequiredFields() method
   - Use REQUIRED_FIELDS_PER_STAGE mapping
   - Check if all required fields are present and non-null
   - Return ValidationResult with field-specific errors
@@ -219,28 +219,28 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.4, 2.2, 2.6_
   - _Estimated time: 45 minutes_
 
-- [ ] 5.4 Implement IntakeComplete gate checker
+- [-] 5.4 Implement IntakeComplete gate checker
   - Check patientId, referralSource, insurancePayer, site, state present
   - Check coverageVerified is true
   - Return ValidationResult with specific gate errors
   - _Requirements: 2.2, 2.3_
   - _Estimated time: 30 minutes_
 
-- [ ] 5.5 Implement ClinicalAccept gate checker
+- [-] 5.5 Implement ClinicalAccept gate checker
   - Query for ClinicalReview record with decision=ACCEPT
   - Check record exists for current review cycle
   - Return ValidationResult
   - _Requirements: 3.2, 3.6_
   - _Estimated time: 30 minutes_
 
-- [ ] 5.6 Implement AppointmentConfirmed gate checker
+- [-] 5.6 Implement AppointmentConfirmed gate checker
   - Query for Appointment with confirmedAt populated
   - Check assigned nurse practitioner has valid role and scope
   - Return ValidationResult
   - _Requirements: 4.2, 4.3_
   - _Estimated time: 45 minutes_
 
-- [ ] 5.7 Implement VisitComplete gate checker
+- [-] 5.7 Implement VisitComplete gate checker
   - Query for Encounter with outcome=COMPLETED
   - Query for ClinicalNote with submittedAt populated
   - Check dateOfService present and servicesProvided non-empty

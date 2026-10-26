@@ -95,7 +95,7 @@ async function main() {
 
   console.log('Assigning roles...');
 
-  await prisma.userRole.createMany({
+  await prisma.userRoleAssignment.createMany({
     data: [
       { userId: admin.id, role: UserRole.ADMIN },
       { userId: intake1.id, role: UserRole.INTAKE_SPECIALIST },

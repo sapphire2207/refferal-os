@@ -24,7 +24,7 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  userRoles                User Role[]
+  userRoles                UserRoleAssignment[]
   userScopes               UserScope[]
   sessions                 Session[]
   referralAssignments      ReferralAssignment[]
@@ -60,7 +60,7 @@ enum UserRole {
   @@map("user_role")
 }
 
-model UserRole {
+model UserRoleAssignment {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   role      UserRole
