@@ -1,6 +1,7 @@
 import {
   Injectable,
   Logger,
+  Optional,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -13,6 +14,7 @@ import { ValidationService, ValidationResult, ValidationError } from './validati
 import { GatewayCheckService, ValidationContext } from './gateway-check.service';
 import { EventService } from './event.service';
 import { AssignmentService } from './assignment.service';
+import { WorkflowMetricsService } from './workflow-metrics.service';
 import {
   PipelineStage,
   WorkStatus,
@@ -65,6 +67,7 @@ export class WorkflowService {
     private readonly eventService: EventService,
     private readonly assignmentService: AssignmentService,
     private readonly redis: RedisService,
+    @Optional() private readonly metricsService?: WorkflowMetricsService,
   ) {}
 
   /**
@@ -213,6 +216,7 @@ export class WorkflowService {
     request: TransitionRequestDto,
     user: AuthTokenPayload,
   ): Promise<TransitionResultDto> {
+    const startTime = Date.now();
     this.logger.log(
       `Executing transition on referral ${referralId} to ${request.targetStage} by user ${user.userId}`,
     );
@@ -252,6 +256,7 @@ export class WorkflowService {
 
     // 3. Optimistic Concurrency Check (Pre-transaction)
     if (referral.version !== request.version) {
+      this.metricsService?.recordVersionConflict(referralId, request.version, referral.version);
       throw new VersionConflictException(request.version, referral.version, referral);
     }
 
@@ -295,6 +300,7 @@ export class WorkflowService {
 
         // Re-check version within locked transaction (Requirement 8.5)
         if (current.version !== request.version) {
+          this.metricsService?.recordVersionConflict(referralId, request.version, current.version);
           throw new VersionConflictException(request.version, current.version, current);
         }
 
@@ -405,6 +411,16 @@ export class WorkflowService {
 
     // 7. Post-Commit Actions: Cache Invalidation & Idempotency Storage
     await this.postCommitActions(referralId, request.idempotencyKey, requestHash, result);
+
+    const latencyMs = Date.now() - startTime;
+    this.logger.log(
+      `Transition completed for referral ${referralId}: ${transactionResult.transitionRecord.fromStage} → ${transactionResult.transitionRecord.toStage} in ${latencyMs}ms`,
+    );
+    this.metricsService?.recordTransition(
+      transactionResult.transitionRecord.fromStage as string,
+      transactionResult.transitionRecord.toStage as string,
+      latencyMs,
+    );
 
     return result;
   }
@@ -677,11 +693,17 @@ export class WorkflowService {
   ): Promise<TransitionResultDto | null> {
     const redisKey = `idempotency:${key}`;
     try {
-      const cached = await this.redis.getJson<TransitionResultDto>(redisKey);
+      const cached = await this.redis.getJson<{ requestHash: string; result: TransitionResultDto }>(redisKey);
       if (cached) {
-        return cached;
+        if (cached.requestHash && cached.requestHash !== requestHash) {
+          throw new ConflictException(
+            `Idempotency key '${key}' was already used with a different request payload`,
+          );
+        }
+        return cached.result || (cached as unknown as TransitionResultDto);
       }
     } catch (e) {
+      if (e instanceof ConflictException) throw e;
       this.logger.warn(`Redis idempotency read failed: ${e.message}`);
     }
 
@@ -723,7 +745,11 @@ export class WorkflowService {
     if (idempotencyKey && result && requestHash) {
       const redisKey = `idempotency:${idempotencyKey}`;
       try {
-        await this.redis.setJson(redisKey, result, this.IDEMPOTENCY_TTL_SECONDS);
+        await this.redis.setJson(
+          redisKey,
+          { requestHash, result },
+          this.IDEMPOTENCY_TTL_SECONDS,
+        );
       } catch (e) {
         this.logger.warn(`Failed to cache idempotency key in Redis: ${e.message}`);
       }

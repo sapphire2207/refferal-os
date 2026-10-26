@@ -361,3 +361,13 @@ export interface Notification {
   readAt?: Date;
   createdAt: Date;
 }
+
+// Document Management Types
+
+export enum ExtractionStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+

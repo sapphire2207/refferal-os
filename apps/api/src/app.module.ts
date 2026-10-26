@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './redis/redis.module';
+import { CommonModule } from './common/common.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PatientsModule } from './modules/patients/patients.module';
@@ -19,6 +21,9 @@ import { HealthController } from './health.controller';
 
 @Module({
   imports: [
+    // Task Scheduling
+    ScheduleModule.forRoot(),
+
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
@@ -36,6 +41,7 @@ import { HealthController } from './health.controller';
     // Core modules
     DatabaseModule,
     RedisModule,
+    CommonModule,
 
     // Feature modules
     AuthModule,

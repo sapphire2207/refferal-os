@@ -125,6 +125,8 @@ export class GatewayCheckService {
       'appointmentConfirmed',
       'nursePractitionerAssigned',
       'encounterComplete',
+      'dateOfService',
+      'servicesProvided',
       'clinicalNoteSubmitted',
       'noteReviewApproval',
       'billingReady',

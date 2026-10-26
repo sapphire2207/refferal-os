@@ -850,7 +850,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 14: End-to-End Tests
 
-- [ ]* 14.1 Write E2E test: Complete happy path workflow
+- [x]* 14.1 Write E2E test: Complete happy path workflow
   - Create patient and referral via API
   - POST INTAKE → CLINICAL_REVIEW
   - Create ClinicalReview via API
@@ -866,7 +866,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Complete workflow_
   - _Estimated time: 2 hours_
 
-- [ ]* 14.2 Write E2E test: Return and resubmit cycle
+- [x]* 14.2 Write E2E test: Return and resubmit cycle
   - Create referral in CLINICAL_REVIEW
   - POST return to INTAKE
   - Complete intake corrections
@@ -876,7 +876,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.7, 3.8_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 14.3 Write E2E test: No-show flow
+- [x]* 14.3 Write E2E test: No-show flow
   - Create referral in NP_VISIT
   - Create Encounter with outcome=NO_SHOW via API
   - System transitions back to SCHEDULING
@@ -885,7 +885,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 5.3_
   - _Estimated time: 1 hour_
 
-- [ ]* 14.4 Write E2E test: Note correction flow
+- [x]* 14.4 Write E2E test: Note correction flow
   - Create referral in NOTES_QA
   - POST return to NP_VISIT with correction requirements
   - Verify assignment to original NP
@@ -895,7 +895,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 5.7, 5.8, 6.3, 6.6_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 14.5 Write E2E test: Concurrent transition handling
+- [x]* 14.5 Write E2E test: Concurrent transition handling
   - Spawn 10 concurrent POST requests to transition same referral
   - Verify only 1 succeeds
   - Verify other 9 receive 409 Conflict
@@ -904,7 +904,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 8.5, 8.6_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 14.6 Write E2E test: Idempotency key handling
+- [x]* 14.6 Write E2E test: Idempotency key handling
   - POST transition with idempotency key
   - Simulate network timeout
   - Retry with same idempotency key
@@ -913,7 +913,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 15.1-15.10_
   - _Estimated time: 1 hour_
 
-- [ ]* 14.7 Write E2E test: Event outbox processing
+- [x]* 14.7 Write E2E test: Event outbox processing
   - Execute multiple transitions (create events)
   - Run EventService.processOutbox()
   - Verify events published
@@ -924,7 +924,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 15: Terminal State Handling
 
-- [ ] 15.1 Implement terminal state blocking logic
+- [x] 15.1 Implement terminal state blocking logic
   - Add checkTerminalState() method to ValidationService
   - Check if caseOutcome is in [REJECTED, PATIENT_DECLINED, DUPLICATE, DISCHARGED, CLOSED]
   - Block forward transitions if terminal state
@@ -932,7 +932,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.5, 11.1-11.8_
   - _Estimated time: 45 minutes_
 
-- [ ]* 15.2 Write unit tests for terminal state blocking
+- [x]* 15.2 Write unit tests for terminal state blocking
   - Test forward transition blocked for each terminal outcome
   - Test backward transitions still allowed (if applicable)
   - Test audit history preserved
@@ -941,7 +941,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.5, 11.1-11.8_
   - _Estimated time: 1 hour_
 
-- [ ]* 15.3 Write integration test: Terminal state enforcement
+- [x]* 15.3 Write integration test: Terminal state enforcement
   - Create referral
   - Set caseOutcome to REJECTED
   - Attempt forward transition
@@ -952,14 +952,14 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 16: Performance and Caching
 
-- [ ] 16.1 Implement permission caching in ValidationService
+- [x] 16.1 Implement permission caching in ValidationService
   - Cache user permissions in Redis with 5-minute TTL
   - Key format: `user:permissions:{userId}`
   - Implement cache-aside pattern
   - _Requirements: 14.9, 16.3, 16.7_
   - _Estimated time: 1 hour_
 
-- [ ] 16.2 Implement dashboard metrics caching
+- [x] 16.2 Implement dashboard metrics caching
   - Create getDashboardMetrics() method in ReferralsService
   - Cache results in Redis with 1-minute TTL
   - Key format: `dashboard:metrics:{userId}`
@@ -967,7 +967,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 16.4, 16.7_
   - _Estimated time: 1 hour_
 
-- [ ] 16.3 Implement cache invalidation logic
+- [x] 16.3 Implement cache invalidation logic
   - Invalidate dashboard metrics on transition success
   - Invalidate referral list queries on state changes
   - Invalidate permissions on role/scope changes
@@ -975,7 +975,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 16.7_
   - _Estimated time: 45 minutes_
 
-- [ ]* 16.4 Write performance tests
+- [x]* 16.4 Write performance tests
   - Test single transition latency (target: P95 < 500ms)
   - Test concurrent transitions on different referrals
   - Test cache hit rates
@@ -985,14 +985,14 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 17: Documentation and Deployment
 
-- [ ] 17.1 Create API documentation
+- [x] 17.1 Create API documentation
   - Document all endpoints with OpenAPI/Swagger decorators
   - Add example requests and responses
   - Document error codes and responses
   - _Requirements: Documentation_
   - _Estimated time: 1.5 hours_
 
-- [ ] 17.2 Create workflow engine usage guide
+- [x] 17.2 Create workflow engine usage guide
   - Document transition flows
   - Document permission requirements
   - Document gate validation rules
@@ -1000,7 +1000,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Documentation_
   - _Estimated time: 1 hour_
 
-- [ ] 17.3 Set up outbox background processor
+- [x] 17.3 Set up outbox background processor
   - Create scheduled job using NestJS @Cron
   - Configure to run every 10 seconds
   - Add health check endpoint
@@ -1008,7 +1008,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 17.9_
   - _Estimated time: 1 hour_
 
-- [ ] 17.4 Create monitoring and alerting
+- [x] 17.4 Create monitoring and alerting
   - Add logging for all state transitions
   - Add metrics for transition latency
   - Add alerts for failed events after 5 retries
@@ -1016,7 +1016,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Monitoring_
   - _Estimated time: 1.5 hours_
 
-- [ ] 17.5 Final checkpoint - Review and test all components
+- [x] 17.5 Final checkpoint - Review and test all components
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Task Dependency Graph

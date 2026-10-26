@@ -16,10 +16,10 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
+    "rootDir": "./src",
     "paths": {
-      "@heals/types": ["../../packages/types/src"],
-      "@heals/constants": ["../../packages/constants/src"]
+      "@heals/types": ["../../packages/types/dist"],
+      "@heals/constants": ["../../packages/constants/dist"]
     }
   },
   "include": ["src/**/*"],

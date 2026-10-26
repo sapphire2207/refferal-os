@@ -8,6 +8,7 @@ import {
   MinLength,
   IsNotEmpty,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { WorkStatus } from '@heals/types';
 
@@ -29,6 +30,11 @@ export class UpdateWorkStatusDto {
    * The target work status to transition to.
    * Must be a valid WorkStatus enum value.
    */
+  @ApiProperty({
+    enum: WorkStatus,
+    description: 'Target operational work status',
+    example: WorkStatus.IN_PROGRESS,
+  })
   @IsEnum(WorkStatus, {
     message: 'workStatus must be a valid work status',
   })
@@ -45,6 +51,10 @@ export class UpdateWorkStatusDto {
    * OPTIONAL for:
    * - PENDING, IN_PROGRESS, COMPLETED status changes
    */
+  @ApiPropertyOptional({
+    description: 'Detailed reason for status change (min 10 characters for BLOCKED and ON_HOLD)',
+    example: 'Awaiting updated lab panel from referring provider',
+  })
   @ValidateIf(
     (o) =>
       o.workStatus === WorkStatus.BLOCKED_NEEDS_INFO ||
@@ -67,6 +77,10 @@ export class UpdateWorkStatusDto {
    * REQUIRED when workStatus is ON_HOLD.
    * Specifies when the referral should be reviewed again.
    */
+  @ApiPropertyOptional({
+    description: 'Next scheduled review date (required for ON_HOLD)',
+    example: '2026-11-01T00:00:00.000Z',
+  })
   @ValidateIf(
     (o) =>
       o.workStatus === WorkStatus.ON_HOLD ||
@@ -83,6 +97,10 @@ export class UpdateWorkStatusDto {
    * Current version of the referral for optimistic concurrency control.
    * Must match the database version for the update to succeed.
    */
+  @ApiProperty({
+    description: 'Current referral version for optimistic concurrency control',
+    example: 1,
+  })
   @IsInt()
   version: number;
 
@@ -90,6 +108,10 @@ export class UpdateWorkStatusDto {
    * Optional metadata for status-specific information.
    * Can include context like contact attempts, follow-up actions, etc.
    */
+  @ApiPropertyOptional({
+    description: 'Supplemental operational metadata',
+    example: { contactAttempts: 2 },
+  })
   @IsOptional()
   metadata?: Record<string, any>;
 }

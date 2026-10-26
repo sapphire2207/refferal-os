@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { Prisma, EventOutbox, EventOutboxStatus } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { WorkflowMetricsService } from './workflow-metrics.service';
 
 /**
  * EventService manages transactional outbox pattern for reliable event emission.
@@ -19,7 +20,10 @@ export class EventService {
   private readonly logger = new Logger(EventService.name);
   private readonly MAX_RETRIES = 5;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly metricsService?: WorkflowMetricsService,
+  ) {}
 
   /**
    * Writes an event to the EventOutbox table within the same transaction as state changes.
@@ -125,6 +129,11 @@ export class EventService {
           this.logger.error(
             `Event ${event.id} (${event.eventType}) failed after ${this.MAX_RETRIES} attempts: ${error.message}`,
           );
+          this.metricsService?.recordFailedOutboxEvent(
+            event.id,
+            this.MAX_RETRIES,
+            error.message,
+          );
         } else {
           this.logger.warn(
             `Event ${event.id} failed attempt ${newRetryCount}/${this.MAX_RETRIES}: ${error.message}`,
@@ -227,4 +236,30 @@ export class EventService {
       `Emitting work status changed event: referral=${referralId} ${fromStatus} → ${toStatus}`,
     );
   }
+
+  /**
+   * Retrieves summary statistics of the Transactional Outbox for telemetry and health checks.
+   */
+  async getOutboxStats(): Promise<{
+    pending: number;
+    published: number;
+    failed: number;
+    total: number;
+  }> {
+    const [pending, published, failed, total] = await Promise.all([
+      this.prisma.eventOutbox.count({
+        where: { status: EventOutboxStatus.PENDING },
+      }),
+      this.prisma.eventOutbox.count({
+        where: { status: EventOutboxStatus.PUBLISHED },
+      }),
+      this.prisma.eventOutbox.count({
+        where: { status: EventOutboxStatus.FAILED },
+      }),
+      this.prisma.eventOutbox.count(),
+    ]);
+
+    return { pending, published, failed, total };
+  }
 }
+

@@ -6,6 +6,7 @@ import {
   ValidateIf,
   MinLength,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserRole } from '@heals/types';
 
 /**
@@ -36,6 +37,10 @@ export class AssignmentRequestDto {
    * - Assigns to role queue (no specific user)
    * - Clears referral.assignedTo field
    */
+  @ApiPropertyOptional({
+    description: 'Specific assignee user UUID (leave empty to assign to role queue)',
+    example: '22222222-2222-2222-2222-222222222222',
+  })
   @IsOptional()
   @IsUUID('4', {
     message: 'userId must be a valid UUID',
@@ -57,6 +62,11 @@ export class AssignmentRequestDto {
    * - Validates that the user has this role
    * - Sets both assignedTo and assignedRole
    */
+  @ApiPropertyOptional({
+    enum: UserRole,
+    description: 'Assigned role queue (required if userId is omitted)',
+    example: UserRole.CLINICAL_REVIEWER,
+  })
   @IsOptional()
   @IsEnum(UserRole, {
     message: 'role must be a valid user role',
@@ -76,6 +86,10 @@ export class AssignmentRequestDto {
    * 
    * This reason is recorded in the ReferralAssignment record and audit trail.
    */
+  @ApiProperty({
+    description: 'Operational reason for assignment/reassignment (min 10 characters)',
+    example: 'Assigned for primary clinical review',
+  })
   @IsString()
   @MinLength(10, {
     message: 'Reason must be at least 10 characters',
@@ -86,6 +100,10 @@ export class AssignmentRequestDto {
    * Optional metadata for assignment-specific information.
    * Can include context like previous assignee, assignment priority, etc.
    */
+  @ApiPropertyOptional({
+    description: 'Arbitrary context metadata for assignment audit',
+    example: { priority: 'URGENT' },
+  })
   @IsOptional()
   metadata?: Record<string, any>;
 }

@@ -19,6 +19,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: AuthTokenPayload): Promise<AuthTokenPayload> {
+    if (payload.sessionId) {
+      const isValid = await this.authService.validateActiveSession(payload.sessionId, payload.userId);
+      if (!isValid) {
+        throw new UnauthorizedException('Session has been revoked or expired');
+      }
+    }
+
     // Get user permissions and attach to payload
     const permissions = await this.authService.getUserPermissions(payload.userId);
     

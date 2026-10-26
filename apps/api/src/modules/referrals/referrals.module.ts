@@ -6,6 +6,8 @@ import { AssignmentService } from './services/assignment.service';
 import { WorkflowService } from './services/workflow.service';
 import { ReferralsService } from './services/referrals.service';
 import { ReferralsController } from './referrals.controller';
+import { OutboxProcessor } from './processors/outbox.processor';
+import { WorkflowMetricsService } from './services/workflow-metrics.service';
 
 /**
  * ReferralsModule
@@ -16,7 +18,8 @@ import { ReferralsController } from './referrals.controller';
  * - Stage gate checking (GatewayCheckService)
  * - Authorization and validation (ValidationService)
  * - Assignment management (AssignmentService)
- * - Event outbox publishing (EventService)
+ * - Event outbox publishing and scheduled background processing (EventService, OutboxProcessor)
+ * - Workflow telemetry and metrics (WorkflowMetricsService)
  * - Audit trail tracking
  * 
  * Note: DatabaseModule and RedisModule are @Global() so they don't need
@@ -32,6 +35,8 @@ import { ReferralsController } from './referrals.controller';
     AssignmentService,
     WorkflowService,
     ReferralsService,
+    OutboxProcessor,
+    WorkflowMetricsService,
   ],
   exports: [
     ValidationService,
@@ -40,6 +45,9 @@ import { ReferralsController } from './referrals.controller';
     AssignmentService,
     WorkflowService,
     ReferralsService,
+    OutboxProcessor,
+    WorkflowMetricsService,
   ],
 })
 export class ReferralsModule {}
+

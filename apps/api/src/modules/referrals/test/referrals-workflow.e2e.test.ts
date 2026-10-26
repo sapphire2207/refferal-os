@@ -149,6 +149,7 @@ describe('Referrals Workflow Engine - End-to-End Tests (Phase 14 & Phase 15.3)',
     dbIdempotencyKeys = new Map();
     dbUsers = new Map();
     redisCache = new Map();
+    let txLock = Promise.resolve();
 
     // Seed baseline test patient
     dbPatients.set('pat-100', {
@@ -269,6 +270,15 @@ describe('Referrals Workflow Engine - End-to-End Tests (Phase 14 & Phase 15.3)',
         }),
         findMany: jest.fn(async ({ where }) => {
           return dbAssignments.filter((a) => a.referralId === where.referralId);
+        }),
+        findFirst: jest.fn(async ({ where }) => {
+          return (
+            dbAssignments.find(
+              (a) =>
+                a.referralId === where.referralId &&
+                (!where.role || a.role === where.role),
+            ) || null
+          );
         }),
       },
       workflowTransition: {
@@ -405,7 +415,11 @@ describe('Referrals Workflow Engine - End-to-End Tests (Phase 14 & Phase 15.3)',
         return ref ? [{ ...ref }] : [];
       }),
       $transaction: jest.fn(async (callback: any) => {
-        return callback(mockPrisma);
+        const nextLock = txLock.then(async () => {
+          return callback(mockPrisma);
+        });
+        txLock = nextLock.catch(() => {});
+        return nextLock;
       }),
     };
 
@@ -750,8 +764,8 @@ describe('Referrals Workflow Engine - End-to-End Tests (Phase 14 & Phase 15.3)',
     dbAssignments.push({
       id: 'assign-prev-np',
       referralId: 'ref-qa-1',
-      assignedTo: npUser.userId,
-      assignedRole: UserRole.NURSE_PRACTITIONER,
+      userId: npUser.userId,
+      role: UserRole.NURSE_PRACTITIONER,
       assignedAt: new Date(Date.now() - 100000),
       unassignedAt: new Date(),
     });

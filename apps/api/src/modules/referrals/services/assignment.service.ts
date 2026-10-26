@@ -67,7 +67,7 @@ export class AssignmentService {
       }
 
       // Check appointment assigned nurse practitioner
-      const appointment = await this.prisma.appointment.findFirst({
+      const appointment = await this.prisma.appointment?.findFirst?.({
         where: { referralId: referral.id },
         orderBy: { createdAt: 'desc' },
       });
@@ -76,16 +76,45 @@ export class AssignmentService {
       }
 
       // Query the latest encounter or note to find the original NP
-      const latestEncounter = await this.prisma.encounter.findFirst({
+      const latestEncounter = await this.prisma.encounter?.findFirst?.({
         where: { referralId: referral.id },
         orderBy: { createdAt: 'desc' },
       });
 
-      if (latestEncounter?.nursePractitionerId || latestEncounter?.providerId) {
+      if (latestEncounter?.nursePractitionerId) {
         return {
           role: primaryRole,
-          userId: latestEncounter.nursePractitionerId || latestEncounter.providerId,
+          userId: latestEncounter.nursePractitionerId,
         };
+      }
+
+      // Check clinical note creator/signer
+      const latestNote = await this.prisma.clinicalNote?.findFirst?.({
+        where: { referralId: referral.id },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (latestNote?.createdById || latestNote?.signedById) {
+        const noteUserId = latestNote.createdById || latestNote.signedById;
+        if (noteUserId) {
+          return {
+            role: primaryRole,
+            userId: noteUserId,
+          };
+        }
+      }
+
+      // Check previous assignments for NURSE_PRACTITIONER
+      const prevAssignment = await this.prisma.referralAssignment?.findFirst?.({
+        where: {
+          referralId: referral.id,
+          role: UserRole.NURSE_PRACTITIONER,
+        },
+        orderBy: { assignedAt: 'desc' },
+      });
+
+      if (prevAssignment?.userId) {
+        return { role: primaryRole, userId: prevAssignment.userId };
       }
     }
 

@@ -17,10 +17,17 @@ describe('AssignmentService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    appointment: {
+      findFirst: jest.fn(),
+    },
     encounter: {
       findFirst: jest.fn(),
     },
+    clinicalNote: {
+      findFirst: jest.fn(),
+    },
     referralAssignment: {
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
       create: jest.fn(),
     },
