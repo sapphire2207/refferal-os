@@ -1,0 +1,679 @@
+// Heals on Wheels - Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER MANAGEMENT & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  userRoles                User Role[]
+  userScopes               UserScope[]
+  sessions                 Session[]
+  referralAssignments      ReferralAssignment[]
+  uploadedDocuments        Document[]               @relation("DocumentUploader")
+  verifiedDocuments        Document[]               @relation("DocumentVerifier")
+  clinicalReviews          ClinicalReview[]
+  createdAppointments      Appointment[]            @relation("AppointmentCreator")
+  confirmedAppointments    Appointment[]            @relation("AppointmentConfirmer")
+  assignedEncounters       Encounter[]
+  createdNotes             ClinicalNote[]           @relation("NoteCreator")
+  signedNotes              ClinicalNote[]           @relation("NoteSigner")
+  noteReviews              NoteReview[]
+  submittedClaims          Claim[]
+  auditEvents              AuditEvent[]
+  notifications            Notification[]
+  sentComments             Comment[]
+  workflowTransitions      WorkflowTransition[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  INTAKE_SPECIALIST
+  CLINICAL_REVIEWER
+  CLINICAL_COORDINATOR
+  OFFICE_MANAGER
+  SCHEDULER
+  NURSE_PRACTITIONER
+  BILLING_COORDINATOR
+  ADMIN
+  COMPLIANCE
+
+  @@map("user_role")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  role      UserRole
+  grantedAt DateTime @default(now()) @map("granted_at")
+  grantedBy String?  @map("granted_by")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+model UserScope {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  site         String?
+  state        String?
+  legalEntity  String?  @map("legal_entity")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_scopes")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  token        String   @unique
+  refreshToken String?  @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+  revokedAt    DateTime? @map("revoked_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// ============================================================================
+// PATIENT MANAGEMENT
+// ============================================================================
+
+model Patient {
+  id                   String    @id @default(uuid())
+  firstName            String    @map("first_name")
+  lastName             String    @map("last_name")
+  dateOfBirth          DateTime  @map("date_of_birth") @db.Date
+  medicalRecordNumber  String?   @map("medical_record_number")
+  phone                String?
+  email                String?
+  addressLine1         String?   @map("address_line1")
+  addressLine2         String?   @map("address_line2")
+  city                 String?
+  state                String?
+  zipCode              String?   @map("zip_code")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  referrals Referral[]
+
+  @@index([lastName, firstName])
+  @@index([dateOfBirth])
+  @@index([medicalRecordNumber])
+  @@map("patients")
+}
+
+// ============================================================================
+// REFERRAL WORKFLOW
+// ============================================================================
+
+enum PipelineStage {
+  INTAKE
+  CLINICAL_REVIEW
+  SCHEDULING
+  NP_VISIT
+  NOTES_QA
+  BILLING
+
+  @@map("pipeline_stage")
+}
+
+enum WorkStatus {
+  PENDING
+  IN_PROGRESS
+  ON_HOLD
+  BLOCKED_NEEDS_INFO
+  COMPLETED
+
+  @@map("work_status")
+}
+
+enum CaseOutcome {
+  ACTIVE
+  REJECTED
+  PATIENT_DECLINED
+  DUPLICATE
+  DISCHARGED
+  CLOSED
+
+  @@map("case_outcome")
+}
+
+enum BillingStatus {
+  NOT_READY
+  READY
+  SUBMITTED
+  REJECTED
+  DENIED
+  PAID
+
+  @@map("billing_status")
+}
+
+enum Priority {
+  ROUTINE
+  URGENT
+  STAT
+
+  @@map("priority")
+}
+
+model Referral {
+  id                        String         @id @default(uuid())
+  patientId                 String         @map("patient_id")
+  pipelineStage             PipelineStage  @map("pipeline_stage")
+  workStatus                WorkStatus     @map("work_status")
+  caseOutcome               CaseOutcome    @default(ACTIVE) @map("case_outcome")
+  billingStatus             BillingStatus  @default(NOT_READY) @map("billing_status")
+  priority                  Priority       @default(ROUTINE)
+  
+  // Intake Information
+  referralSource            String?        @map("referral_source")
+  referringProvider         String?        @map("referring_provider")
+  referringProviderNpi      String?        @map("referring_provider_npi")
+  referringFacility         String?        @map("referring_facility")
+  insurancePayer            String?        @map("insurance_payer")
+  insuranceMemberId         String?        @map("insurance_member_id")
+  insuranceGroupNumber      String?        @map("insurance_group_number")
+  coverageVerified          Boolean        @default(false) @map("coverage_verified")
+  coverageVerificationDate  DateTime?      @map("coverage_verification_date")
+  coverageNotes             String?        @map("coverage_notes")
+  
+  // Location & Assignment
+  site                      String?
+  state                     String?
+  legalEntity               String?        @map("legal_entity")
+  assignedTo                String?        @map("assigned_to")
+  assignedRole              UserRole?      @map("assigned_role")
+  
+  // Metadata
+  version                   Int            @default(1)
+  createdAt                 DateTime       @default(now()) @map("created_at")
+  updatedAt                 DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  patient                   Patient                 @relation(fields: [patientId], references: [id])
+  assignments               ReferralAssignment[]
+  documents                 Document[]
+  clinicalReviews           ClinicalReview[]
+  appointments              Appointment[]
+  encounters                Encounter[]
+  clinicalNotes             ClinicalNote[]
+  noteReviews               NoteReview[]
+  claims                    Claim[]
+  workflowTransitions       WorkflowTransition[]
+  comments                  Comment[]
+
+  @@index([patientId])
+  @@index([pipelineStage, workStatus])
+  @@index([assignedTo])
+  @@index([site, state])
+  @@index([createdAt])
+  @@index([pipelineStage, workStatus, assignedTo])
+  @@index([version])
+  @@index([caseOutcome])
+  @@index([billingStatus])
+  @@index([site, state, legalEntity])
+  @@map("referrals")
+}
+
+model ReferralAssignment {
+  id          String    @id @default(uuid())
+  referralId  String    @map("referral_id")
+  userId      String    @map("user_id")
+  role        UserRole
+  assignedAt  DateTime  @default(now()) @map("assigned_at")
+  assignedBy  String?   @map("assigned_by")
+  unassignedAt DateTime? @map("unassigned_at")
+  reason      String?
+
+  // Relations
+  referral    Referral  @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([referralId])
+  @@index([userId])
+  @@map("referral_assignments")
+}
+
+model WorkflowTransition {
+  id            String        @id @default(uuid())
+  referralId    String        @map("referral_id")
+  fromStage     PipelineStage? @map("from_stage")
+  toStage       PipelineStage  @map("to_stage")
+  fromStatus    WorkStatus?    @map("from_status")
+  toStatus      WorkStatus     @map("to_status")
+  transitionedBy String        @map("transitioned_by")
+  reason        String?
+  metadata      Json?
+  transitionedAt DateTime      @default(now()) @map("transitioned_at")
+
+  // Relations
+  referral      Referral      @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [transitionedBy], references: [id])
+
+  @@index([referralId])
+  @@index([transitionedAt])
+  @@index([referralId, transitionedAt])
+  @@index([toStage, transitionedAt])
+  @@map("workflow_transitions")
+}
+
+// ============================================================================
+// DOCUMENT MANAGEMENT
+// ============================================================================
+
+enum DocumentType {
+  REFERRAL_FORM
+  INSURANCE_CARD
+  CLINICAL_ORDER
+  MEDICAL_RECORD
+  IDENTIFICATION
+  CLINICAL_NOTE
+  SUPPORTING_DOCUMENT
+  OTHER
+
+  @@map("document_type")
+}
+
+enum ExtractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("extraction_status")
+}
+
+model Document {
+  id                String            @id @default(uuid())
+  referralId        String            @map("referral_id")
+  type              DocumentType
+  filename          String
+  originalFilename  String            @map("original_filename")
+  mimeType          String            @map("mime_type")
+  sizeBytes         Int               @map("size_bytes")
+  storagePath       String            @map("storage_path")
+  uploadedById      String            @map("uploaded_by_id")
+  uploadedAt        DateTime          @default(now()) @map("uploaded_at")
+  
+  // AI Extraction
+  extractionStatus  ExtractionStatus? @map("extraction_status")
+  extractionData    Json?             @map("extraction_data")
+  extractionError   String?           @map("extraction_error")
+  confidenceScore   Float?            @map("confidence_score")
+  
+  // Verification
+  verifiedAt        DateTime?         @map("verified_at")
+  verifiedById      String?           @map("verified_by_id")
+  verificationNotes String?           @map("verification_notes")
+
+  // Relations
+  referral          Referral          @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  uploadedBy        User              @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  verifiedBy        User?             @relation("DocumentVerifier", fields: [verifiedById], references: [id])
+
+  @@index([referralId])
+  @@index([uploadedById])
+  @@index([extractionStatus])
+  @@map("documents")
+}
+
+// ============================================================================
+// CLINICAL REVIEW
+// ============================================================================
+
+enum ClinicalReviewDecision {
+  ACCEPT
+  RETURN
+  REJECT
+
+  @@map("clinical_review_decision")
+}
+
+model ClinicalReview {
+  id          String                 @id @default(uuid())
+  referralId  String                 @map("referral_id")
+  reviewerId  String                 @map("reviewer_id")
+  decision    ClinicalReviewDecision
+  reason      String?
+  notes       String?
+  reviewedAt  DateTime               @default(now()) @map("reviewed_at")
+
+  // Relations
+  referral    Referral               @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  reviewer    User                   @relation(fields: [reviewerId], references: [id])
+
+  @@index([referralId])
+  @@index([reviewerId])
+  @@map("clinical_reviews")
+}
+
+// ============================================================================
+// SCHEDULING & APPOINTMENTS
+// ============================================================================
+
+model Appointment {
+  id                   String    @id @default(uuid())
+  referralId           String    @map("referral_id")
+  scheduledDate        DateTime  @map("scheduled_date") @db.Date
+  scheduledTime        String    @map("scheduled_time")
+  durationMinutes      Int       @default(60) @map("duration_minutes")
+  nursePractitionerId  String    @map("nurse_practitioner_id")
+  location             String?
+  confirmedAt          DateTime? @map("confirmed_at")
+  confirmedBy          String?   @map("confirmed_by")
+  cancelledAt          DateTime? @map("cancelled_at")
+  cancellationReason   String?   @map("cancellation_reason")
+  rescheduledFromId    String?   @map("rescheduled_from_id")
+  createdById          String    @map("created_by_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  referral             Referral  @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  createdBy            User      @relation("AppointmentCreator", fields: [createdById], references: [id])
+  confirmedByUser      User?     @relation("AppointmentConfirmer", fields: [confirmedBy], references: [id])
+  encounters           Encounter[]
+
+  @@index([referralId])
+  @@index([nursePractitionerId])
+  @@index([scheduledDate])
+  @@map("appointments")
+}
+
+// ============================================================================
+// VISITS & ENCOUNTERS
+// ============================================================================
+
+enum VisitOutcome {
+  COMPLETED
+  NO_SHOW
+  RESCHEDULED
+  CANCELLED
+
+  @@map("visit_outcome")
+}
+
+model Encounter {
+  id                   String        @id @default(uuid())
+  referralId           String        @map("referral_id")
+  appointmentId        String?       @map("appointment_id")
+  outcome              VisitOutcome
+  dateOfService        DateTime?     @map("date_of_service") @db.Date
+  nursePractitionerId  String        @map("nurse_practitioner_id")
+  servicesProvided     String[]      @map("services_provided")
+  encounterNotes       String?       @map("encounter_notes")
+  completedAt          DateTime?     @map("completed_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+
+  // Relations
+  referral             Referral      @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  appointment          Appointment?  @relation(fields: [appointmentId], references: [id])
+  nursePractitioner    User          @relation(fields: [nursePractitionerId], references: [id])
+  clinicalNotes        ClinicalNote[]
+
+  @@index([referralId])
+  @@index([appointmentId])
+  @@index([nursePractitionerId])
+  @@map("encounters")
+}
+
+// ============================================================================
+// CLINICAL NOTES
+// ============================================================================
+
+model ClinicalNote {
+  id           String    @id @default(uuid())
+  referralId   String    @map("referral_id")
+  encounterId  String    @map("encounter_id")
+  content      String    @db.Text
+  noteType     String    @map("note_type")
+  createdById  String    @map("created_by_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  submittedAt  DateTime? @map("submitted_at")
+  signedAt     DateTime? @map("signed_at")
+  signedById   String?   @map("signed_by_id")
+
+  // Relations
+  referral     Referral  @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  encounter    Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  createdBy    User      @relation("NoteCreator", fields: [createdById], references: [id])
+  signedBy     User?     @relation("NoteSigner", fields: [signedById], references: [id])
+  reviews      NoteReview[]
+
+  @@index([referralId])
+  @@index([encounterId])
+  @@index([createdById])
+  @@map("clinical_notes")
+}
+
+enum NoteReviewDecision {
+  APPROVE
+  RETURN_FOR_CORRECTION
+
+  @@map("note_review_decision")
+}
+
+model NoteReview {
+  id                  String             @id @default(uuid())
+  clinicalNoteId      String             @map("clinical_note_id")
+  referralId          String             @map("referral_id")
+  reviewerId          String             @map("reviewer_id")
+  decision            NoteReviewDecision
+  reason              String?
+  correctionRequired  String?            @map("correction_required")
+  reviewedAt          DateTime           @default(now()) @map("reviewed_at")
+
+  // Relations
+  clinicalNote        ClinicalNote       @relation(fields: [clinicalNoteId], references: [id], onDelete: Cascade)
+  referral            Referral           @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  reviewer            User               @relation(fields: [reviewerId], references: [id])
+
+  @@index([clinicalNoteId])
+  @@index([referralId])
+  @@index([reviewerId])
+  @@map("note_reviews")
+}
+
+// ============================================================================
+// BILLING & CLAIMS
+// ============================================================================
+
+model Claim {
+  id                 String        @id @default(uuid())
+  referralId         String        @map("referral_id")
+  claimNumber        String?       @map("claim_number")
+  submittedAt        DateTime?     @map("submitted_at")
+  submittedById      String?       @map("submitted_by_id")
+  externalReference  String?       @map("external_reference")
+  status             BillingStatus
+  rejectionReason    String?       @map("rejection_reason")
+  denialReason       String?       @map("denial_reason")
+  paidAmount         Decimal?      @map("paid_amount") @db.Decimal(10, 2)
+  paidAt             DateTime?     @map("paid_at")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  referral           Referral      @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  submittedBy        User?         @relation(fields: [submittedById], references: [id])
+
+  @@index([referralId])
+  @@index([status])
+  @@map("claims")
+}
+
+// ============================================================================
+// AUDIT & COMPLIANCE
+// ============================================================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STAGE_TRANSITION
+  STATUS_CHANGE
+  ASSIGNMENT
+  CLINICAL_REVIEW
+  CLINICAL_APPROVAL
+  NOTE_REVIEW
+  NOTE_APPROVAL
+  CLAIM_SUBMISSION
+  VIEW
+  EXPORT
+
+  @@map("audit_action")
+}
+
+model AuditEvent {
+  id         String      @id @default(uuid())
+  userId     String      @map("user_id")
+  action     AuditAction
+  entityType String      @map("entity_type")
+  entityId   String      @map("entity_id")
+  before     Json?
+  after      Json?
+  metadata   Json?
+  ipAddress  String?     @map("ip_address")
+  userAgent  String?     @map("user_agent")
+  timestamp  DateTime    @default(now())
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_events")
+}
+
+// ============================================================================
+// NOTIFICATIONS & COMMUNICATION
+// ============================================================================
+
+enum NotificationType {
+  ASSIGNMENT
+  MENTION
+  REVIEW_REQUIRED
+  RETURNED_FOR_CORRECTION
+  APPROVED
+  OVERDUE
+  SYSTEM
+
+  @@map("notification_type")
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String           @map("user_id")
+  type       NotificationType
+  title      String
+  message    String           @db.Text
+  referralId String?          @map("referral_id")
+  read       Boolean          @default(false)
+  readAt     DateTime?        @map("read_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  referralId String   @map("referral_id")
+  userId     String   @map("user_id")
+  content    String   @db.Text
+  mentions   String[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  referral   Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([referralId])
+  @@index([userId])
+  @@map("comments")
+}
+
+// ============================================================================
+// WORKFLOW ENGINE - EVENT OUTBOX & IDEMPOTENCY
+// ============================================================================
+
+enum EventOutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+
+  @@map("event_outbox_status")
+}
+
+model EventOutbox {
+  id            String            @id @default(uuid())
+  eventId       String            @unique @map("event_id")
+  eventType     String            @map("event_type")
+  aggregateId   String            @map("aggregate_id")
+  payload       Json
+  status        EventOutboxStatus @default(PENDING)
+  retryCount    Int               @default(0) @map("retry_count")
+  lastAttemptAt DateTime?         @map("last_attempt_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  publishedAt   DateTime?         @map("published_at")
+
+  @@index([status, createdAt])
+  @@index([aggregateId])
+  @@map("event_outbox")
+}
+
+model IdempotencyKey {
+  id             String   @id @default(uuid())
+  key            String   @unique
+  requestHash    String   @map("request_hash")
+  responseStatus Int      @map("response_status")
+  responseBody   Json     @map("response_body")
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
