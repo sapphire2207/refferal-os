@@ -208,12 +208,35 @@ export class GatewayCheckService {
   async checkClinicalAccept(referral: Referral): Promise<ValidationResult> {
     this.logger.debug(`Checking ClinicalAccept gate for referral ${referral.id}`);
     
-    // TODO: Implement clinical acceptance validation
-    // - Query ClinicalReview table for referral
-    // - Verify ACCEPT decision exists for current cycle
-    // - Return validation result
+    const errors: ValidationError[] = [];
     
-    throw new Error('Method not implemented');
+    // Query for ClinicalReview record with decision=ACCEPT
+    const clinicalReview = await this.prisma.clinicalReview.findFirst({
+      where: {
+        referralId: referral.id,
+        decision: 'ACCEPT',
+      },
+      orderBy: {
+        reviewedAt: 'desc',
+      },
+    });
+    
+    // Check if an ACCEPT decision exists
+    if (!clinicalReview) {
+      errors.push({
+        type: 'gate',
+        message: 'Clinical review with ACCEPT decision is required before transitioning to SCHEDULING',
+        details: {
+          gate: 'ClinicalAccept',
+          referralId: referral.id,
+        },
+      });
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
 
   /**
@@ -227,6 +250,7 @@ export class GatewayCheckService {
    * @returns Promise<ValidationResult> - Success or error if appointment not confirmed
    * 
    * @see Requirement 4.2: Appointment record verification before NP_VISIT transition
+   * @see Requirement 4.3: Nurse practitioner role and scope validation
    * @see Design: AppointmentConfirmed Gate
    */
   async checkAppointmentConfirmed(
@@ -234,14 +258,135 @@ export class GatewayCheckService {
   ): Promise<ValidationResult> {
     this.logger.debug(`Checking AppointmentConfirmed gate for referral ${referral.id}`);
     
-    // TODO: Implement appointment confirmation validation
-    // - Query Appointment table for referral
-    // - Verify confirmedAt is populated
-    // - Verify nursePractitionerId is assigned
-    // - Optionally verify NP has valid role and scope
-    // - Return validation result
+    const errors: ValidationError[] = [];
     
-    throw new Error('Method not implemented');
+    // Query for the most recent non-cancelled appointment
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        referralId: referral.id,
+        cancelledAt: null,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    
+    // Check if appointment exists
+    if (!appointment) {
+      errors.push({
+        type: 'gate',
+        message: 'Appointment must be scheduled and confirmed',
+        details: { gate: 'AppointmentConfirmed' },
+      });
+      return { valid: false, errors };
+    }
+    
+    // Check if appointment is confirmed
+    if (!appointment.confirmedAt) {
+      errors.push({
+        type: 'gate',
+        field: 'confirmedAt',
+        message: 'Appointment must be confirmed before transitioning to NP_VISIT',
+        details: { 
+          gate: 'AppointmentConfirmed',
+          appointmentId: appointment.id,
+        },
+      });
+    }
+    
+    // Check if nurse practitioner is assigned
+    if (!appointment.nursePractitionerId) {
+      errors.push({
+        type: 'gate',
+        field: 'nursePractitionerId',
+        message: 'Appointment must have an assigned nurse practitioner',
+        details: { 
+          gate: 'AppointmentConfirmed',
+          appointmentId: appointment.id,
+        },
+      });
+      return { valid: false, errors };
+    }
+    
+    // Validate nurse practitioner has NURSE_PRACTITIONER role (Requirement 4.3)
+    const npUser = await this.prisma.user.findUnique({
+      where: { id: appointment.nursePractitionerId },
+      include: {
+        userRoles: true,
+        userScopes: true,
+      },
+    });
+    
+    if (!npUser) {
+      errors.push({
+        type: 'gate',
+        field: 'nursePractitionerId',
+        message: 'Assigned nurse practitioner not found',
+        details: { 
+          gate: 'AppointmentConfirmed',
+          nursePractitionerId: appointment.nursePractitionerId,
+        },
+      });
+      return { valid: false, errors };
+    }
+    
+    // Verify NP has NURSE_PRACTITIONER role
+    const hasNpRole = npUser.userRoles.some(
+      (role) => role.role === 'NURSE_PRACTITIONER'
+    );
+    
+    if (!hasNpRole) {
+      errors.push({
+        type: 'gate',
+        field: 'nursePractitionerId',
+        message: 'Assigned user does not have NURSE_PRACTITIONER role',
+        details: { 
+          gate: 'AppointmentConfirmed',
+          nursePractitionerId: appointment.nursePractitionerId,
+          userName: `${npUser.firstName} ${npUser.lastName}`,
+        },
+      });
+    }
+    
+    // Validate nurse practitioner has appropriate site scope (Requirement 4.3)
+    if (referral.site) {
+      const hasMatchingScope = npUser.userScopes.some(
+        (scope) => scope.site === null || scope.site === referral.site
+      );
+      
+      if (!hasMatchingScope) {
+        errors.push({
+          type: 'scope',
+          field: 'nursePractitionerId',
+          message: 'Assigned nurse practitioner does not have access to referral site',
+          details: { 
+            gate: 'AppointmentConfirmed',
+            nursePractitionerId: appointment.nursePractitionerId,
+            referralSite: referral.site,
+            userName: `${npUser.firstName} ${npUser.lastName}`,
+          },
+        });
+      }
+    }
+    
+    // Check if NP is active
+    if (!npUser.isActive) {
+      errors.push({
+        type: 'gate',
+        field: 'nursePractitionerId',
+        message: 'Assigned nurse practitioner is not active',
+        details: { 
+          gate: 'AppointmentConfirmed',
+          nursePractitionerId: appointment.nursePractitionerId,
+          userName: `${npUser.firstName} ${npUser.lastName}`,
+        },
+      });
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
 
   /**
@@ -262,16 +407,71 @@ export class GatewayCheckService {
   async checkVisitComplete(referral: Referral): Promise<ValidationResult> {
     this.logger.debug(`Checking VisitComplete gate for referral ${referral.id}`);
     
-    // TODO: Implement visit completion validation
-    // - Query Encounter table for referral
-    // - Verify outcome is COMPLETED
-    // - Verify dateOfService is present
-    // - Query ClinicalNote table for referral
-    // - Verify submittedAt is populated
-    // - Verify servicesProvided is non-empty
-    // - Return validation result
-    
-    throw new Error('Method not implemented');
+    const errors: ValidationError[] = [];
+
+    // Query for Encounter with outcome=COMPLETED
+    const encounter = await this.prisma.encounter.findFirst({
+      where: {
+        referralId: referral.id,
+        outcome: 'COMPLETED',
+      },
+    });
+
+    if (!encounter) {
+      errors.push({
+        type: 'gate',
+        field: 'encounter',
+        message: 'Encounter record with outcome COMPLETED is required',
+      });
+      
+      // Return early if no encounter - can't check other fields
+      return {
+        valid: false,
+        errors,
+      };
+    }
+
+    // Check dateOfService is present
+    if (!encounter.dateOfService) {
+      errors.push({
+        type: 'gate',
+        field: 'dateOfService',
+        message: 'Date of service is required',
+      });
+    }
+
+    // Check servicesProvided is non-empty
+    if (!encounter.servicesProvided || encounter.servicesProvided.length === 0) {
+      errors.push({
+        type: 'gate',
+        field: 'servicesProvided',
+        message: 'At least one service provided is required',
+      });
+    }
+
+    // Query for ClinicalNote with submittedAt populated
+    const clinicalNote = await this.prisma.clinicalNote.findFirst({
+      where: {
+        referralId: referral.id,
+        encounterId: encounter.id,
+        submittedAt: {
+          not: null,
+        },
+      },
+    });
+
+    if (!clinicalNote) {
+      errors.push({
+        type: 'gate',
+        field: 'clinicalNote',
+        message: 'Clinical note must be submitted before quality review',
+      });
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
 
   /**
@@ -290,13 +490,78 @@ export class GatewayCheckService {
   async checkNoteApproved(referral: Referral): Promise<ValidationResult> {
     this.logger.debug(`Checking NoteApproved gate for referral ${referral.id}`);
     
-    // TODO: Implement note approval validation
-    // - Query NoteReview table for active clinical note
-    // - Verify APPROVE decision exists
-    // - Verify billingStatus is READY
-    // - Return validation result
-    
-    throw new Error('Method not implemented');
+    const errors: ValidationError[] = [];
+
+    // 1. Check billingStatus is READY (Requirement 6.4)
+    if (referral.billingStatus !== 'READY') {
+      errors.push({
+        type: 'gate',
+        field: 'billingStatus',
+        message: 'Billing status must be READY before transitioning to BILLING',
+        details: {
+          gate: 'NoteApproved',
+          currentBillingStatus: referral.billingStatus,
+        },
+      });
+    }
+
+    // 2. Query for the most recent submitted clinical note for this referral (active revision)
+    const activeNote = await this.prisma.clinicalNote.findFirst({
+      where: {
+        referralId: referral.id,
+        submittedAt: {
+          not: null,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!activeNote) {
+      errors.push({
+        type: 'gate',
+        field: 'clinicalNote',
+        message: 'Submitted clinical note is required before transitioning to BILLING',
+        details: { gate: 'NoteApproved', referralId: referral.id },
+      });
+      return { valid: false, errors };
+    }
+
+    // 3. Query for NoteReview with decision=APPROVE for this active clinical note
+    const approvedReview = await this.prisma.noteReview.findFirst({
+      where: {
+        clinicalNoteId: activeNote.id,
+        decision: 'APPROVE',
+      },
+      orderBy: {
+        reviewedAt: 'desc',
+      },
+    });
+
+    if (!approvedReview) {
+      errors.push({
+        type: 'gate',
+        field: 'noteReview',
+        message: 'Clinical note must be approved before transitioning to BILLING',
+        details: {
+          gate: 'NoteApproved',
+          clinicalNoteId: activeNote.id,
+          referralId: referral.id,
+        },
+      });
+    }
+
+    const valid = errors.length === 0;
+    if (valid) {
+      this.logger.debug(`NoteApproved gate passed for referral ${referral.id}`);
+    } else {
+      this.logger.debug(
+        `NoteApproved gate failed for referral ${referral.id}: ${errors.length} error(s)`,
+      );
+    }
+
+    return { valid, errors };
   }
 
   /**
@@ -318,13 +583,84 @@ export class GatewayCheckService {
       `Checking gates for transition to ${context.targetStage} for referral ${context.referral.id}`,
     );
     
-    // TODO: Implement gate orchestration logic
-    // - Determine which gates apply for the target stage
-    // - Execute applicable gate checks
-    // - Accumulate validation errors
-    // - Return combined validation result
-    
-    throw new Error('Method not implemented');
+    const errors: ValidationError[] = [];
+
+    const stageOrder: Record<PipelineStage, number> = {
+      [PipelineStage.INTAKE]: 1,
+      [PipelineStage.CLINICAL_REVIEW]: 2,
+      [PipelineStage.SCHEDULING]: 3,
+      [PipelineStage.NP_VISIT]: 4,
+      [PipelineStage.NOTES_QA]: 5,
+      [PipelineStage.BILLING]: 6,
+    };
+
+    const currentOrder = stageOrder[context.referral.pipelineStage as unknown as PipelineStage];
+    const targetOrder = stageOrder[context.targetStage];
+    const isBackward = targetOrder < currentOrder;
+
+    if (isBackward) {
+      // Backward transitions require a documented reason (Requirements 3.3, 6.3, 12.2)
+      if (!context.reason || context.reason.trim().length === 0) {
+        errors.push({
+          type: 'gate',
+          field: 'reason',
+          message: `Reason is required for backward transition to ${context.targetStage}`,
+          details: {
+            fromStage: context.referral.pipelineStage,
+            toStage: context.targetStage,
+          },
+        });
+      }
+    } else {
+      // Forward transition: validate required fields for the current stage
+      const requiredFieldsResult = await this.checkRequiredFields(
+        context.referral,
+        context.referral.pipelineStage as unknown as PipelineStage,
+      );
+      errors.push(...requiredFieldsResult.errors);
+
+      // Execute stage-specific gate checks based on target stage
+      let gateResult: ValidationResult | null = null;
+
+      switch (context.targetStage) {
+        case PipelineStage.CLINICAL_REVIEW:
+          gateResult = await this.checkIntakeComplete(context.referral);
+          break;
+        case PipelineStage.SCHEDULING:
+          gateResult = await this.checkClinicalAccept(context.referral);
+          break;
+        case PipelineStage.NP_VISIT:
+          gateResult = await this.checkAppointmentConfirmed(context.referral);
+          break;
+        case PipelineStage.NOTES_QA:
+          gateResult = await this.checkVisitComplete(context.referral);
+          break;
+        case PipelineStage.BILLING:
+          gateResult = await this.checkNoteApproved(context.referral);
+          break;
+      }
+
+      if (gateResult) {
+        errors.push(...gateResult.errors);
+      }
+    }
+
+    // Deduplicate any overlapping errors (e.g. from requiredFields and gate checks)
+    const seenErrors = new Set<string>();
+    const uniqueErrors: ValidationError[] = [];
+
+    for (const err of errors) {
+      const key = `${err.type}:${err.field || ''}:${err.message}`;
+      if (!seenErrors.has(key)) {
+        seenErrors.add(key);
+        uniqueErrors.push(err);
+      }
+    }
+
+    return {
+      valid: uniqueErrors.length === 0,
+      errors: uniqueErrors,
+    };
   }
 }
 

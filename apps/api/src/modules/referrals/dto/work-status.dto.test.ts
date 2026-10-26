@@ -4,7 +4,7 @@ import {
   UpdateWorkStatusDto,
   validateWorkStatusRequirements,
 } from './work-status.dto';
-import { WorkStatus } from '@repo/types';
+import { WorkStatus } from '@heals/types';
 
 describe('UpdateWorkStatusDto', () => {
   describe('DTO Validation', () => {

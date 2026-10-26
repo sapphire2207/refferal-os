@@ -6,4 +6,4 @@ import { Module } from '@nestjs/common';
   providers: [],
   exports: [],
 })
-export class patientsModule {}
+export class PatientsModule {}

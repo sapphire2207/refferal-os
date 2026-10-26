@@ -1,4 +1,4 @@
-import { UserRole } from '@repo/types';
+import { UserRole } from '@heals/types';
 import {
   PERMISSIONS,
   ROLE_PERMISSIONS,

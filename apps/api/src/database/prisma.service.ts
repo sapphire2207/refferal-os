@@ -42,7 +42,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   // Helper method for soft deletes
   async softDelete(model: string, id: string) {
-    return this[model].update({
+    return (this as any)[model].update({
       where: { id },
       data: { deletedAt: new Date() },
     });

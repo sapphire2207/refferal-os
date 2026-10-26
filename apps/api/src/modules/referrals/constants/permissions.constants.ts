@@ -1,4 +1,4 @@
-import { UserRole } from '@repo/types';
+import { UserRole } from '@heals/types';
 
 /**
  * Referral Workflow Action Permissions
@@ -160,6 +160,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Transition permissions
     PERMISSIONS.REFERRALS_TRANSITION_TO_SCHEDULING,
     PERMISSIONS.REFERRALS_TRANSITION_RETURN_TO_INTAKE,
+    PERMISSIONS.REFERRALS_TRANSITION_TO_BILLING,
+    PERMISSIONS.REFERRALS_TRANSITION_RETURN_TO_NP_VISIT,
 
     // Clinical review permissions
     PERMISSIONS.REFERRALS_REVIEW,
@@ -193,6 +195,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     // Transition permissions
     PERMISSIONS.REFERRALS_TRANSITION_TO_SCHEDULING,
     PERMISSIONS.REFERRALS_TRANSITION_RETURN_TO_INTAKE,
+    PERMISSIONS.REFERRALS_TRANSITION_TO_BILLING,
+    PERMISSIONS.REFERRALS_TRANSITION_RETURN_TO_NP_VISIT,
 
     // Clinical review permissions
     PERMISSIONS.REFERRALS_REVIEW,

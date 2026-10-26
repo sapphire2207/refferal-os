@@ -1,6 +1,6 @@
-import { IsBoolean, IsString, IsOptional, IsEnum, IsObject, IsArray, IsInt, ValidateNested } from 'class-validator';
+import { IsBoolean, IsString, IsOptional, IsEnum, IsObject, IsArray, IsInt, ValidateNested, Equals, IsDefined } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PipelineStage, WorkStatus, Referral } from '@repo/types';
+import { PipelineStage, WorkStatus, Referral } from '@heals/types';
 
 /**
  * Validation error types as defined in the design document.
@@ -149,19 +149,21 @@ export class TransitionResultDto {
    * Indicates the transition was successful.
    * Always true for this DTO; failed transitions return ErrorResponseDto.
    */
-  @IsBoolean()
+  @Equals(true, { message: 'success must be true' })
   success: true;
 
   /**
    * The updated referral entity after the transition.
    * Includes incremented version and new stage/status values.
    */
+  @IsDefined({ message: 'referral is required' })
   @IsObject()
   referral: Referral;
 
   /**
    * The workflow transition audit record created for this transition.
    */
+  @IsDefined({ message: 'transition is required' })
   @ValidateNested()
   @Type(() => WorkflowTransitionDto)
   transition: WorkflowTransitionDto;
@@ -190,7 +192,7 @@ export class ErrorResponseDto {
    * Indicates the operation failed.
    * Always false for this DTO.
    */
-  @IsBoolean()
+  @Equals(false, { message: 'success must be false' })
   success: false;
 
   /**

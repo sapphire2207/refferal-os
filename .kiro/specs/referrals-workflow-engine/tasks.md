@@ -203,7 +203,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 20 minutes_
 
-- [-] 5.2 Implement checkRequiredFields() method
+- [x] 5.2 Implement checkRequiredFields() method
   - Use REQUIRED_FIELDS_PER_STAGE mapping
   - Check if all required fields are present and non-null
   - Return ValidationResult with field-specific errors
@@ -219,28 +219,28 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.4, 2.2, 2.6_
   - _Estimated time: 45 minutes_
 
-- [-] 5.4 Implement IntakeComplete gate checker
+- [x] 5.4 Implement IntakeComplete gate checker
   - Check patientId, referralSource, insurancePayer, site, state present
   - Check coverageVerified is true
   - Return ValidationResult with specific gate errors
   - _Requirements: 2.2, 2.3_
   - _Estimated time: 30 minutes_
 
-- [-] 5.5 Implement ClinicalAccept gate checker
+- [x] 5.5 Implement ClinicalAccept gate checker
   - Query for ClinicalReview record with decision=ACCEPT
   - Check record exists for current review cycle
   - Return ValidationResult
   - _Requirements: 3.2, 3.6_
   - _Estimated time: 30 minutes_
 
-- [-] 5.6 Implement AppointmentConfirmed gate checker
+- [x] 5.6 Implement AppointmentConfirmed gate checker
   - Query for Appointment with confirmedAt populated
   - Check assigned nurse practitioner has valid role and scope
   - Return ValidationResult
   - _Requirements: 4.2, 4.3_
   - _Estimated time: 45 minutes_
 
-- [-] 5.7 Implement VisitComplete gate checker
+- [x] 5.7 Implement VisitComplete gate checker
   - Query for Encounter with outcome=COMPLETED
   - Query for ClinicalNote with submittedAt populated
   - Check dateOfService present and servicesProvided non-empty
@@ -248,7 +248,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 5.2_
   - _Estimated time: 45 minutes_
 
-- [ ] 5.8 Implement NoteApproved gate checker
+- [x] 5.8 Implement NoteApproved gate checker
   - Query for NoteReview with decision=APPROVE
   - Check billingStatus is READY
   - Verify note review references active clinical note revision
@@ -256,7 +256,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 6.4_
   - _Estimated time: 45 minutes_
 
-- [ ] 5.9 Implement checkGatesForTransition() orchestrator method
+- [x] 5.9 Implement checkGatesForTransition() orchestrator method
   - Determine which gate to check based on transition
   - Call checkRequiredFields()
   - Call appropriate gate checker method
@@ -265,7 +265,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.4_
   - _Estimated time: 45 minutes_
 
-- [ ]* 5.10 Write unit tests for all gate checkers
+- [x] 5.10 Write unit tests for all gate checkers
   - Test each gate with valid data
   - Test each gate with missing requirements
   - Test checkGatesForTransition() orchestration
@@ -276,7 +276,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 6: Event Service
 
-- [ ] 6.1 Create EventService stub
+- [x] 6.1 Create EventService stub
   - Create `apps/api/src/modules/referrals/services/event.service.ts`
   - Add @Injectable decorator
   - Inject PrismaService
@@ -284,7 +284,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 20 minutes_
 
-- [ ] 6.2 Implement enqueueEvent() method
+- [x] 6.2 Implement enqueueEvent() method
   - Generate unique eventId using UUID
   - Accept Prisma transaction object as parameter
   - Insert into EventOutbox within transaction with status=PENDING
@@ -292,7 +292,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.10, 17.7, 17.8_
   - _Estimated time: 45 minutes_
 
-- [ ]* 6.3 Write unit tests for enqueueEvent()
+- [x] 6.3 Write unit tests for enqueueEvent()
   - Test event insertion within transaction
   - Test event fields are correctly populated
   - Test transaction rollback behavior
@@ -300,7 +300,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 17.7, 17.8_
   - _Estimated time: 45 minutes_
 
-- [ ] 6.4 Implement processOutbox() background processor method
+- [x] 6.4 Implement processOutbox() background processor method
   - Query EventOutbox for status=PENDING ordered by createdAt, limit 100
   - For each event: publish to notification/WebSocket/dashboard (mocked for now)
   - Update status to PUBLISHED with publishedAt timestamp on success
@@ -309,7 +309,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 17.9, 17.10_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 6.5 Write unit tests for processOutbox()
+- [x] 6.5 Write unit tests for processOutbox()
   - Test successful event publishing
   - Test retry logic with transient failures
   - Test dead letter (FAILED status) after max retries
@@ -318,7 +318,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 17.9, 17.10_
   - _Estimated time: 1 hour_
 
-- [ ] 6.6 Create EventEmitter helper methods
+- [x] 6.6 Create EventEmitter helper methods
   - Create emitStageChanged() method
   - Create emitAssignment() method
   - Create emitWorkStatusChanged() method
@@ -328,7 +328,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 7: Assignment Service
 
-- [ ] 7.1 Create AssignmentService stub
+- [x] 7.1 Create AssignmentService stub
   - Create `apps/api/src/modules/referrals/services/assignment.service.ts`
   - Add @Injectable decorator
   - Inject PrismaService
@@ -336,14 +336,14 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 20 minutes_
 
-- [ ] 7.2 Implement determineAssignment() method
+- [x] 7.2 Implement determineAssignment() method
   - Use STAGE_OWNERS mapping to determine role
   - Check metadata for return-to-originator scenarios
   - Return { role, userId? } object
   - _Requirements: 9.1, 9.2_
   - _Estimated time: 45 minutes_
 
-- [ ] 7.3 Implement assignToUser() method
+- [x] 7.3 Implement assignToUser() method
   - Verify user has required role and scope
   - Close previous ReferralAssignment (set unassignedAt)
   - Create new ReferralAssignment record
@@ -351,13 +351,13 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 9.3, 9.4, 9.5_
   - _Estimated time: 1 hour_
 
-- [ ] 7.4 Implement assignToRoleQueue() method
+- [x] 7.4 Implement assignToRoleQueue() method
   - Create ReferralAssignment with role but no userId
   - Set Referral assignedRole and clear assignedTo
   - _Requirements: 9.2_
   - _Estimated time: 30 minutes_
 
-- [ ]* 7.5 Write unit tests for AssignmentService
+- [x]* 7.5 Write unit tests for AssignmentService
   - Test determineAssignment() with various stages
   - Test assignToUser() creates correct records
   - Test assignToRoleQueue() clears assignedTo
@@ -369,7 +369,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 8: Workflow Service Core
 
-- [ ] 8.1 Create WorkflowService stub
+- [x] 8.1 Create WorkflowService stub
   - Create `apps/api/src/modules/referrals/services/workflow.service.ts`
   - Add @Injectable decorator
   - Inject PrismaService, ValidationService, GatewayCheckService, EventService, AssignmentService, RedisService
@@ -377,7 +377,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Service structure_
   - _Estimated time: 30 minutes_
 
-- [ ] 8.2 Implement validateTransition() method (validation only, no execution)
+- [x] 8.2 Implement validateTransition() method (validation only, no execution)
   - Call ValidationService.checkAuthorization()
   - Call ValidationService.checkScope()
   - Call ValidationService.validateTransitionPath()
@@ -388,7 +388,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.1-1.4, 1.6_
   - _Estimated time: 1 hour_
 
-- [ ]* 8.3 Write unit tests for validateTransition()
+- [x]* 8.3 Write unit tests for validateTransition()
   - Test successful validation (all checks pass)
   - Test authorization failure
   - Test scope failure
@@ -400,7 +400,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.1-1.6_
   - _Estimated time: 1.5 hours_
 
-- [ ] 8.4 Implement executeTransition() method - transaction setup
+- [x] 8.4 Implement executeTransition() method - transaction setup
   - Check idempotency key in Redis, return cached response if exists
   - Call validateTransition()
   - If validation fails, throw ValidationException with errors
@@ -410,7 +410,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.5, 1.7, 1.9, 8.5, 15.1-15.3_
   - _Estimated time: 1.5 hours_
 
-- [ ] 8.5 Implement executeTransition() method - state updates
+- [x] 8.5 Implement executeTransition() method - state updates
   - Increment version
   - Update pipelineStage to targetStage
   - Set workStatus to PENDING
@@ -419,7 +419,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.5_
   - _Estimated time: 30 minutes_
 
-- [ ] 8.6 Implement executeTransition() method - audit and events
+- [x] 8.6 Implement executeTransition() method - audit and events
   - Create WorkflowTransition record within transaction
   - Call AssignmentService.determineAssignment()
   - Call AssignmentService.assignToUser() or assignToRoleQueue() within transaction
@@ -428,14 +428,14 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.8, 1.10, 9.1_
   - _Estimated time: 1 hour_
 
-- [ ] 8.7 Implement executeTransition() method - post-commit actions
+- [x] 8.7 Implement executeTransition() method - post-commit actions
   - Invalidate Redis caches (dashboard metrics, referral lists)
   - Store idempotency response in Redis (24hr TTL)
   - Return TransitionResult with success, referral, transition
   - _Requirements: 15.4, 16.7_
   - _Estimated time: 30 minutes_
 
-- [ ] 8.8 Implement executeTransition() method - error handling
+- [x] 8.8 Implement executeTransition() method - error handling
   - Wrap transaction in try-catch
   - Handle version conflicts (return 409 with current state)
   - Handle database errors (rollback automatic, return 500)
@@ -444,7 +444,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.9, 13.3, 13.4, 13.9_
   - _Estimated time: 1 hour_
 
-- [ ]* 8.9 Write unit tests for executeTransition() happy path
+- [x]* 8.9 Write unit tests for executeTransition() happy path
   - Test successful transition with all components
   - Verify version incremented
   - Verify stage and status updated
@@ -457,7 +457,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.5, 1.8, 1.10_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 8.10 Write unit tests for executeTransition() error cases
+- [x]* 8.10 Write unit tests for executeTransition() error cases
   - Test validation failure (no state change)
   - Test version conflict (return 409, no state change)
   - Test database error (rollback, no state change)
@@ -467,7 +467,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.6, 1.9, 13.3_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 8.11 Write unit tests for executeTransition() idempotency
+- [x]* 8.11 Write unit tests for executeTransition() idempotency
   - Test duplicate request with same idempotency key
   - Verify cached response returned
   - Verify no duplicate state changes
@@ -479,7 +479,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 9: Workflow Service Additional Methods
 
-- [ ] 9.1 Implement updateWorkStatus() method
+- [x] 9.1 Implement updateWorkStatus() method
   - Validate work status transition using WORK_STATUS_TRANSITIONS
   - Validate reason provided for BLOCKED_NEEDS_INFO and ON_HOLD
   - Check version for optimistic concurrency
@@ -491,7 +491,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 10.3-10.10_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 9.2 Write unit tests for updateWorkStatus()
+- [x]* 9.2 Write unit tests for updateWorkStatus()
   - Test valid status transitions
   - Test invalid status transitions
   - Test reason validation
@@ -501,7 +501,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 10.3-10.10_
   - _Estimated time: 1 hour_
 
-- [ ] 9.3 Implement assignReferral() method
+- [x] 9.3 Implement assignReferral() method
   - Validate assignment request
   - Check user authorization for assignment operation
   - If userId provided, call AssignmentService.assignToUser()
@@ -511,7 +511,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 9.3, 9.4_
   - _Estimated time: 1 hour_
 
-- [ ]* 9.4 Write unit tests for assignReferral()
+- [x]* 9.4 Write unit tests for assignReferral()
   - Test user assignment
   - Test role queue assignment
   - Test authorization check
@@ -519,7 +519,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 9.3, 9.4_
   - _Estimated time: 45 minutes_
 
-- [ ] 9.5 Implement getWorkflowHistory() method
+- [x] 9.5 Implement getWorkflowHistory() method
   - Query WorkflowTransition records for referralId
   - Check user authorization for audit queries
   - Order by transitionedAt descending
@@ -528,7 +528,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 12.8, 14.7_
   - _Estimated time: 45 minutes_
 
-- [ ]* 9.6 Write unit tests for getWorkflowHistory()
+- [x]* 9.6 Write unit tests for getWorkflowHistory()
   - Test history query returns all transitions
   - Test ordering
   - Test pagination
@@ -540,7 +540,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 10: Referrals Module Setup
 
-- [ ] 10.1 Create ReferralsModule
+- [x] 10.1 Create ReferralsModule
   - Create `apps/api/src/modules/referrals/referrals.module.ts`
   - Import DatabaseModule, RedisModule
   - Register all services as providers
@@ -548,7 +548,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Module structure_
   - _Estimated time: 30 minutes_
 
-- [ ] 10.2 Create ReferralsService for CRUD operations
+- [x] 10.2 Create ReferralsService for CRUD operations
   - Create `apps/api/src/modules/referrals/services/referrals.service.ts`
   - Implement create() method
   - Implement findOne() method with authorization
@@ -557,7 +557,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Basic CRUD_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 10.3 Write unit tests for ReferralsService
+- [x]* 10.3 Write unit tests for ReferralsService
   - Test create operation
   - Test findOne with authorization
   - Test findMany with filters
@@ -568,7 +568,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 11: API Controllers and Guards
 
-- [ ] 11.1 Create ReferralsController
+- [x] 11.1 Create ReferralsController
   - Create `apps/api/src/modules/referrals/referrals.controller.ts`
   - Add @Controller('referrals') decorator
   - Add @UseGuards(JwtAuthGuard, RbacGuard)
@@ -576,7 +576,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: API structure_
   - _Estimated time: 30 minutes_
 
-- [ ] 11.2 Implement POST /api/referrals endpoint
+- [x] 11.2 Implement POST /api/referrals endpoint
   - Create CreateReferralDto
   - Add validation pipe
   - Call ReferralsService.create()
@@ -585,7 +585,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Basic CRUD_
   - _Estimated time: 45 minutes_
 
-- [ ] 11.3 Implement GET /api/referrals endpoint
+- [x] 11.3 Implement GET /api/referrals endpoint
   - Create QueryReferralsDto with filters
   - Add pagination parameters
   - Call ReferralsService.findMany() with filters
@@ -594,7 +594,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Basic CRUD_
   - _Estimated time: 1 hour_
 
-- [ ] 11.4 Implement GET /api/referrals/:id endpoint
+- [x] 11.4 Implement GET /api/referrals/:id endpoint
   - Add @Param('id') parameter
   - Call ReferralsService.findOne()
   - Return 200 OK with referral
@@ -602,7 +602,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Basic CRUD_
   - _Estimated time: 30 minutes_
 
-- [ ] 11.5 Implement PATCH /api/referrals/:id endpoint
+- [x] 11.5 Implement PATCH /api/referrals/:id endpoint
   - Create UpdateReferralDto
   - Add version field for optimistic concurrency
   - Call ReferralsService.update()
@@ -611,7 +611,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Basic CRUD, 8.1_
   - _Estimated time: 1 hour_
 
-- [ ] 11.6 Implement POST /api/referrals/:id/transitions endpoint
+- [x] 11.6 Implement POST /api/referrals/:id/transitions endpoint
   - Use TransitionRequestDto
   - Extract idempotency key from headers
   - Call WorkflowService.executeTransition()
@@ -623,7 +623,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.1-1.10_
   - _Estimated time: 1.5 hours_
 
-- [ ] 11.7 Implement PATCH /api/referrals/:id/work-status endpoint
+- [x] 11.7 Implement PATCH /api/referrals/:id/work-status endpoint
   - Use UpdateWorkStatusDto
   - Call WorkflowService.updateWorkStatus()
   - Return 200 OK with updated referral
@@ -631,7 +631,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 10.3-10.10_
   - _Estimated time: 45 minutes_
 
-- [ ] 11.8 Implement POST /api/referrals/:id/assignments endpoint
+- [x] 11.8 Implement POST /api/referrals/:id/assignments endpoint
   - Use AssignmentRequestDto
   - Call WorkflowService.assignReferral()
   - Return 200 OK with updated referral
@@ -639,7 +639,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 9.3, 9.4_
   - _Estimated time: 45 minutes_
 
-- [ ] 11.9 Implement GET /api/referrals/:id/workflow-history endpoint
+- [x] 11.9 Implement GET /api/referrals/:id/workflow-history endpoint
   - Add pagination query parameters
   - Call WorkflowService.getWorkflowHistory()
   - Return 200 OK with paginated history
@@ -647,7 +647,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 12.8_
   - _Estimated time: 45 minutes_
 
-- [ ] 11.10 Create custom exception filters
+- [x] 11.10 Create custom exception filters
   - Create ValidationExceptionFilter
   - Create VersionConflictExceptionFilter
   - Map exceptions to appropriate HTTP responses
@@ -657,7 +657,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 12: Integration Tests
 
-- [ ] 12.1 Set up integration test infrastructure
+- [x] 12.1 Set up integration test infrastructure
   - Create test database configuration
   - Create test data fixtures
   - Set up beforeEach and afterEach hooks
@@ -665,7 +665,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: Testing infrastructure_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 12.2 Write integration test: INTAKE → CLINICAL_REVIEW transition
+- [x]* 12.2 Write integration test: INTAKE → CLINICAL_REVIEW transition
   - Create referral in INTAKE stage
   - Complete intake requirements
   - POST transition to CLINICAL_REVIEW
@@ -676,7 +676,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 2.1-2.10_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 12.3 Write integration test: Clinical review accept flow
+- [x]* 12.3 Write integration test: Clinical review accept flow
   - Create referral in CLINICAL_REVIEW
   - Create ClinicalReview with decision=ACCEPT
   - POST transition to SCHEDULING
@@ -685,7 +685,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.2, 3.6_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.4 Write integration test: Clinical review return flow
+- [x]* 12.4 Write integration test: Clinical review return flow
   - Create referral in CLINICAL_REVIEW
   - POST transition back to INTAKE with reason
   - Verify referral in INTAKE with workStatus=BLOCKED_NEEDS_INFO
@@ -694,7 +694,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.3, 3.7_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.5 Write integration test: Clinical review reject flow
+- [x]* 12.5 Write integration test: Clinical review reject flow
   - Create referral in CLINICAL_REVIEW
   - POST reject decision
   - Verify caseOutcome=REJECTED
@@ -703,7 +703,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 3.4, 3.5, 11.6_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.6 Write integration test: Version conflict handling
+- [x]* 12.6 Write integration test: Version conflict handling
   - Two clients fetch same referral (version N)
   - Client A transitions successfully (version N+1)
   - Client B attempts transition with version N
@@ -713,7 +713,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.7, 8.1-8.3_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.7 Write integration test: Authorization failures
+- [x]* 12.7 Write integration test: Authorization failures
   - Create referral
   - Authenticate as user without required permission
   - Attempt transition
@@ -722,7 +722,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.1, 14.1-14.3_
   - _Estimated time: 45 minutes_
 
-- [ ]* 12.8 Write integration test: Scope access denial
+- [x]* 12.8 Write integration test: Scope access denial
   - Create referral in site A
   - Authenticate as user with scope for site B only
   - Attempt transition
@@ -731,7 +731,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.2, 14.4-14.5_
   - _Estimated time: 45 minutes_
 
-- [ ]* 12.9 Write integration test: Gate validation failures
+- [x]* 12.9 Write integration test: Gate validation failures
   - Create referral in INTAKE with missing coverageVerified
   - Attempt transition to CLINICAL_REVIEW
   - Verify 400 Bad Request
@@ -740,7 +740,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 2.3, 2.6_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.10 Write integration test: Work status transitions
+- [x]* 12.10 Write integration test: Work status transitions
   - Create referral in any stage
   - PATCH work status to IN_PROGRESS
   - PATCH work status to BLOCKED_NEEDS_INFO with reason
@@ -749,7 +749,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 10.3-10.10_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.11 Write integration test: Assignment operations
+- [x]* 12.11 Write integration test: Assignment operations
   - Create referral
   - POST assignment to specific user
   - Verify assignedTo updated
@@ -759,7 +759,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 9.3, 9.4_
   - _Estimated time: 1 hour_
 
-- [ ]* 12.12 Write integration test: Workflow history query
+- [x]* 12.12 Write integration test: Workflow history query
   - Create referral
   - Execute multiple transitions
   - GET /workflow-history
@@ -770,14 +770,14 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
 
 ### Phase 13: Property-Based Tests
 
-- [ ] 13.1 Install and configure fast-check
+- [x] 13.1 Install and configure fast-check
   - Install fast-check: `npm install --save-dev fast-check`
   - Create test utilities for custom arbitraries
   - Create `apps/api/src/modules/referrals/test/arbitraries.ts`
   - _Requirements: PBT infrastructure_
   - _Estimated time: 30 minutes_
 
-- [ ] 13.2 Create custom arbitraries
+- [x] 13.2 Create custom arbitraries
   - Implement arbitraryReferral()
   - Implement arbitraryUser()
   - Implement arbitraryTransitionRequest()
@@ -786,7 +786,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: PBT infrastructure_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 13.3 Write property test: Authorization enforcement (Property 1)
+- [x]* 13.3 Write property test: Authorization enforcement (Property 1)
   - Generate random referral and user combinations
   - Check authorization and scope independently
   - Assert validation result matches expected authorization
@@ -796,7 +796,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.1, 1.2, 14.1-14.5_
   - _Estimated time: 1.5 hours_
 
-- [ ]* 13.4 Write property test: Transition validation (Property 2)
+- [x]* 13.4 Write property test: Transition validation (Property 2)
   - Generate random transition requests
   - Validate path, required fields, and gates
   - Assert only valid transitions pass all checks
@@ -806,7 +806,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.3, 1.4_
   - _Estimated time: 2 hours_
 
-- [ ]* 13.5 Write property test: Transaction safety (Property 3)
+- [x]* 13.5 Write property test: Transaction safety (Property 3)
   - Generate random transition executions
   - Mock database to randomly fail
   - Assert state is either fully committed or fully unchanged
@@ -817,7 +817,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.5, 1.6, 1.9_
   - _Estimated time: 2 hours_
 
-- [ ]* 13.6 Write property test: Version conflict detection (Property 4)
+- [x]* 13.6 Write property test: Version conflict detection (Property 4)
   - Generate random version mismatches
   - Assert all version conflicts return 409
   - Assert current state included in response
@@ -828,7 +828,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.7, 8.1-8.7_
   - _Estimated time: 1 hour_
 
-- [ ]* 13.7 Write property test: Audit completeness (Property 5)
+- [x]* 13.7 Write property test: Audit completeness (Property 5)
   - Generate random successful state changes
   - Assert WorkflowTransition record created for each
   - Assert all required fields present in audit record
@@ -838,7 +838,7 @@ This implementation plan breaks down the Referrals Workflow Engine into small, i
   - _Requirements: 1.8, 12.1-12.8_
   - _Estimated time: 1 hour_
 
-- [ ]* 13.8 Write property test: Event emission (Property 6)
+- [x]* 13.8 Write property test: Event emission (Property 6)
   - Generate random successful transitions
   - Assert EventOutbox entry created for each
   - Assert events written within same transaction

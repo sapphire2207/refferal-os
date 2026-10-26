@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional, IsString, IsInt, IsObject } from 'class-validator';
-import { PipelineStage } from '@repo/types';
+import { PipelineStage } from '@heals/types';
 
 /**
  * DTO for requesting a stage transition on a referral.

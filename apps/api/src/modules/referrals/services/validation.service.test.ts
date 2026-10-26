@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ValidationService } from './validation.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { AuthTokenPayload } from '@heals/types';
+import { AuthTokenPayload, UserRole } from '@heals/types';
 import { Referral } from '@prisma/client';
 
 describe('ValidationService', () => {
@@ -51,7 +51,7 @@ describe('ValidationService', () => {
       const adminUser: AuthTokenPayload = {
         userId: 'user-1',
         email: 'admin@example.com',
-        roles: ['ADMIN'],
+        roles: [UserRole.ADMIN],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -76,7 +76,7 @@ describe('ValidationService', () => {
       const intakeUser: AuthTokenPayload = {
         userId: 'user-2',
         email: 'intake@example.com',
-        roles: ['INTAKE_SPECIALIST'],
+        roles: [UserRole.INTAKE_SPECIALIST],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -107,7 +107,7 @@ describe('ValidationService', () => {
       const billingUser: AuthTokenPayload = {
         userId: 'user-3',
         email: 'billing@example.com',
-        roles: ['BILLING_COORDINATOR'],
+        roles: [UserRole.BILLING_COORDINATOR],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -137,7 +137,7 @@ describe('ValidationService', () => {
       const clinicalUser: AuthTokenPayload = {
         userId: 'user-4',
         email: 'clinical@example.com',
-        roles: ['CLINICAL_REVIEWER'],
+        roles: [UserRole.CLINICAL_REVIEWER],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -170,7 +170,7 @@ describe('ValidationService', () => {
       const multiRoleUser: AuthTokenPayload = {
         userId: 'user-5',
         email: 'multi@example.com',
-        roles: ['INTAKE_SPECIALIST', 'CLINICAL_REVIEWER'],
+        roles: [UserRole.INTAKE_SPECIALIST, UserRole.CLINICAL_REVIEWER],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -205,7 +205,7 @@ describe('ValidationService', () => {
       const intakeUser: AuthTokenPayload = {
         userId: 'user-6',
         email: 'intake2@example.com',
-        roles: ['INTAKE_SPECIALIST'],
+        roles: [UserRole.INTAKE_SPECIALIST],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -232,7 +232,7 @@ describe('ValidationService', () => {
       const schedulerUser: AuthTokenPayload = {
         userId: 'user-7',
         email: 'scheduler@example.com',
-        roles: ['SCHEDULER'],
+        roles: [UserRole.SCHEDULER],
         scopes: {
           sites: ['SITE_1'],
           states: ['CA'],
@@ -282,13 +282,12 @@ describe('ValidationService', () => {
       expect(result).toBe(false);
     });
   });
-});
 
   describe('checkScope', () => {
     const mockUser: AuthTokenPayload = {
       userId: 'user-123',
       email: 'user@example.com',
-      roles: ['CLINICAL_REVIEWER'],
+      roles: [UserRole.CLINICAL_REVIEWER],
       scopes: {
         sites: ['site-1', 'site-2'],
         states: ['CA', 'NY'],
@@ -314,7 +313,7 @@ describe('ValidationService', () => {
     it('should return true when user is ADMIN regardless of scopes', async () => {
       const adminUser: AuthTokenPayload = {
         ...mockUser,
-        roles: ['ADMIN'],
+        roles: [UserRole.ADMIN],
         scopes: {
           sites: [],
           states: [],
@@ -413,7 +412,7 @@ describe('ValidationService', () => {
     it('should handle user with multiple roles including ADMIN', async () => {
       const multiRoleUser: AuthTokenPayload = {
         ...mockUser,
-        roles: ['CLINICAL_REVIEWER', 'ADMIN'],
+        roles: [UserRole.CLINICAL_REVIEWER, UserRole.ADMIN],
         scopes: {
           sites: [],
           states: [],
@@ -445,3 +444,40 @@ describe('ValidationService', () => {
       expect(result).toBe(true);
     });
   });
+
+  describe('checkTerminalState', () => {
+    it('should return valid=true for ACTIVE case outcome', () => {
+      const referral = {
+        ...mockReferral,
+        caseOutcome: 'ACTIVE',
+      } as Referral;
+
+      const result = service.checkTerminalState(referral);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should return valid=false for all terminal case outcomes', () => {
+      const terminalOutcomes = [
+        'REJECTED',
+        'PATIENT_DECLINED',
+        'DUPLICATE',
+        'DISCHARGED',
+        'CLOSED',
+      ];
+
+      for (const outcome of terminalOutcomes) {
+        const referral = {
+          ...mockReferral,
+          caseOutcome: outcome,
+        } as Referral;
+
+        const result = service.checkTerminalState(referral);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].type).toBe('transition');
+        expect(result.errors[0].field).toBe('caseOutcome');
+      }
+    });
+  });
+});

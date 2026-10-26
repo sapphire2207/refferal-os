@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
-import { AuthTokenPayload } from '@heals/types';
+import { AuthTokenPayload, UserRole } from '@heals/types';
 import { ROLE_PERMISSIONS } from '@heals/constants';
 
 @Injectable()
@@ -49,11 +49,11 @@ export class AuthService {
 
     const roles = user.userRoles.map((ur: any) => ur.role);
     const scopes = {
-      sites: [...new Set(user.userScopes.map((us: any) => us.site).filter(Boolean))],
-      states: [...new Set(user.userScopes.map((us: any) => us.state).filter(Boolean))],
+      sites: [...new Set(user.userScopes.map((us: any) => us.site).filter(Boolean))] as string[],
+      states: [...new Set(user.userScopes.map((us: any) => us.state).filter(Boolean))] as string[],
       legalEntities: [
         ...new Set(user.userScopes.map((us: any) => us.legalEntity).filter(Boolean)),
-      ],
+      ] as string[],
     };
 
     const payload: Omit<AuthTokenPayload, 'iat' | 'exp'> = {
@@ -159,8 +159,8 @@ export class AuthService {
 
     const permissions = new Set<string>();
     user.userRoles.forEach((ur: any) => {
-      const rolePermissions = ROLE_PERMISSIONS[ur.role] || [];
-      rolePermissions.forEach((p) => permissions.add(p));
+      const rolePermissions = ROLE_PERMISSIONS[ur.role as UserRole] || [];
+      rolePermissions.forEach((p: string) => permissions.add(p));
     });
 
     const permissionsArray = Array.from(permissions);

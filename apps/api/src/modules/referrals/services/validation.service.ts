@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
-import { PipelineStage, AuthTokenPayload } from '@heals/types';
+import { PipelineStage, AuthTokenPayload, UserRole, CaseOutcome } from '@heals/types';
 import { Referral } from '@prisma/client';
 import { ROLE_PERMISSIONS } from '../constants/permissions.constants';
 import { ALLOWED_TRANSITIONS } from '../constants/workflow.constants';
@@ -63,7 +63,7 @@ export class ValidationService {
     this.logger.debug(`Checking authorization for user ${user.userId}, action: ${action}`);
     
     // 1. Check if user is ADMIN (bypass all permission checks)
-    if (user.roles.includes('ADMIN')) {
+    if (user.roles.includes(UserRole.ADMIN)) {
       this.logger.debug(`User ${user.userId} has ADMIN role, bypassing permission check`);
       return true;
     }
@@ -142,7 +142,7 @@ export class ValidationService {
     this.logger.debug(`Checking scope for user ${user.userId}, referral ${referral.id}`);
     
     // 1. Check if user is ADMIN (bypass all scope checks)
-    if (user.roles.includes('ADMIN')) {
+    if (user.roles.includes(UserRole.ADMIN)) {
       this.logger.debug(`User ${user.userId} is ADMIN, bypassing scope checks`);
       return true;
     }
@@ -269,6 +269,51 @@ export class ValidationService {
     }
     
     // Version matches - validation successful
+    return {
+      valid: true,
+      errors: [],
+    };
+  }
+
+  /**
+   * Validates if a referral is in a terminal state.
+   * Terminal outcomes (REJECTED, PATIENT_DECLINED, DUPLICATE, DISCHARGED, CLOSED)
+   * prevent forward transitions.
+   * 
+   * @param referral - The referral entity to check
+   * @returns ValidationResult
+   * 
+   * @see Requirements: 3.5, 11.1-11.8
+   */
+  checkTerminalState(referral: Referral): ValidationResult {
+    const terminalOutcomes = [
+      CaseOutcome.REJECTED,
+      CaseOutcome.PATIENT_DECLINED,
+      CaseOutcome.DUPLICATE,
+      CaseOutcome.DISCHARGED,
+      CaseOutcome.CLOSED,
+    ];
+
+    if (terminalOutcomes.includes(referral.caseOutcome as unknown as CaseOutcome)) {
+      this.logger.warn(
+        `Referral ${referral.id} is in terminal state '${referral.caseOutcome}', forward transitions blocked`,
+      );
+      return {
+        valid: false,
+        errors: [
+          {
+            type: 'transition',
+            field: 'caseOutcome',
+            message: `Referral is in terminal state '${referral.caseOutcome}'. Forward transitions are blocked unless explicitly reopened.`,
+            details: {
+              caseOutcome: referral.caseOutcome,
+              referralId: referral.id,
+            },
+          },
+        ],
+      };
+    }
+
     return {
       valid: true,
       errors: [],

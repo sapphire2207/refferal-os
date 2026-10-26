@@ -13,7 +13,7 @@ export class AuthController {
   @UseGuards(AuthGuard('local'))
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Request() req, @Body() loginDto: LoginDto) {
+  async login(@Request() req: any, @Body() loginDto: LoginDto) {
     return this.authService.login(req.user);
   }
 
@@ -32,7 +32,7 @@ export class AuthController {
 
   @Post('me')
   @HttpCode(HttpStatus.OK)
-  async me(@CurrentUser() user) {
+  async me(@CurrentUser() user: any) {
     return { user };
   }
 }

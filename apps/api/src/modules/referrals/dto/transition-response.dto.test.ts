@@ -8,7 +8,7 @@ import {
   ErrorResponseDto,
   VersionConflictDto,
 } from './transition-response.dto';
-import { PipelineStage, WorkStatus, CaseOutcome, BillingStatus, Priority } from '@repo/types';
+import { PipelineStage, WorkStatus, CaseOutcome, BillingStatus, Priority } from '@heals/types';
 
 describe('TransitionResponseDto', () => {
   describe('ValidationErrorDto', () => {

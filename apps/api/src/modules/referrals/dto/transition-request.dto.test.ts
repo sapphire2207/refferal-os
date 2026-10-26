@@ -1,7 +1,7 @@
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { TransitionRequestDto } from './transition-request.dto';
-import { PipelineStage } from '@repo/types';
+import { PipelineStage } from '@heals/types';
 
 describe('TransitionRequestDto', () => {
   describe('validation', () => {

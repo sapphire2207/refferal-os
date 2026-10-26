@@ -6,9 +6,10 @@ import {
   IsDate,
   ValidateIf,
   MinLength,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { WorkStatus } from '@repo/types';
+import { WorkStatus } from '@heals/types';
 
 /**
  * DTO for updating work status on a referral.
@@ -47,14 +48,17 @@ export class UpdateWorkStatusDto {
   @ValidateIf(
     (o) =>
       o.workStatus === WorkStatus.BLOCKED_NEEDS_INFO ||
-      o.workStatus === WorkStatus.ON_HOLD,
+      o.workStatus === WorkStatus.ON_HOLD ||
+      (o.reason !== undefined && o.reason !== null),
   )
+  @IsNotEmpty({
+    message: 'Reason is required when setting BLOCKED_NEEDS_INFO or ON_HOLD status',
+  })
   @IsString()
   @MinLength(10, {
     message:
       'Reason must be at least 10 characters when setting BLOCKED_NEEDS_INFO or ON_HOLD status',
   })
-  @IsOptional()
   reason?: string;
 
   /**
@@ -63,10 +67,16 @@ export class UpdateWorkStatusDto {
    * REQUIRED when workStatus is ON_HOLD.
    * Specifies when the referral should be reviewed again.
    */
-  @ValidateIf((o) => o.workStatus === WorkStatus.ON_HOLD)
+  @ValidateIf(
+    (o) =>
+      o.workStatus === WorkStatus.ON_HOLD ||
+      (o.nextReviewDate !== undefined && o.nextReviewDate !== null),
+  )
+  @IsNotEmpty({
+    message: 'Next review date is required when setting ON_HOLD status',
+  })
   @IsDate()
   @Type(() => Date)
-  @IsOptional()
   nextReviewDate?: Date;
 
   /**

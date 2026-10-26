@@ -6,7 +6,7 @@ import {
   ValidateIf,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '@repo/types';
+import { UserRole } from '@heals/types';
 
 /**
  * DTO for requesting assignment or reassignment of a referral.
