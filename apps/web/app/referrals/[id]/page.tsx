@@ -34,6 +34,7 @@ import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/state-views';
 import { PipelineStage, WorkStatus, Priority, ClinicalReviewDecision, NoteReviewDecision, DocumentType } from '@heals/types';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function ReferralDetailPage() {
   const { id } = useParams() as { id: string };
@@ -132,7 +133,7 @@ export default function ReferralDetailPage() {
     return (
       <AppLayout title="Referral Details">
         <div className="space-y-6 max-w-6xl mx-auto py-8">
-          <LoadingState message="Loading clinical referral details and gate history..." />
+          <LoadingState message="Loading clinical referral details and gate history…" />
         </div>
       </AppLayout>
     );
@@ -152,23 +153,43 @@ export default function ReferralDetailPage() {
     );
   }
 
+  // 6-Gate Sequence for Visual Stepper
+  const workflowGates = [
+    { key: PipelineStage.INTAKE, label: 'Intake Triage', order: 1 },
+    { key: PipelineStage.CLINICAL_REVIEW, label: 'Clinical Review', order: 2 },
+    { key: PipelineStage.SCHEDULING, label: 'NP Scheduling', order: 3 },
+    { key: PipelineStage.NP_VISIT, label: 'Mobile Visit', order: 4 },
+    { key: PipelineStage.NOTES_QA, label: 'Notes QA', order: 5 },
+    { key: PipelineStage.BILLING, label: 'Billing Ready', order: 6 },
+  ];
+
+  const currentGateIndex = workflowGates.findIndex((g) => g.key === referral.pipelineStage);
+
   return (
     <AppLayout title={`Referral: ${referral.trackingNumber}`}>
-      <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="space-y-6 max-w-6xl mx-auto pb-10">
         {/* Top Standardized Page Header */}
         <PageHeader backHref="/referrals" backLabel="Referrals">
-          <div>
+          <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2.5">
               <PageHeaderHeading>
                 {referral.patient?.firstName} {referral.patient?.lastName}
               </PageHeaderHeading>
-              <Badge variant="outline" className="font-mono text-xs border-border bg-zinc-50 font-semibold text-zinc-800">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(referral.trackingNumber);
+                  toast.success(`Copied Tracking # ${referral.trackingNumber}`);
+                }}
+                className="font-mono text-xs border border-border/80 bg-muted/50 px-2 py-0.5 rounded-md font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer"
+                title="Click to copy tracking number"
+              >
                 {referral.trackingNumber}
-              </Badge>
+              </button>
               <PriorityBadge priority={referral.priority} />
             </div>
-            <PageHeaderDescription>
-              DOB: {referral.patient?.dateOfBirth || 'N/A'} • MRN: {referral.patient?.mrn || 'N/A'} • Site: {referral.site} ({referral.state}) • OCC Version: v{referral.version}
+            <PageHeaderDescription className="tabular-nums">
+              DOB: {referral.patient?.dateOfBirth || 'N/A'} • MRN: {referral.patient?.mrn || 'N/A'} • Site: {referral.site} ({referral.state}) • Ledger Version: v{referral.version}
             </PageHeaderDescription>
           </div>
 
@@ -189,6 +210,45 @@ export default function ReferralDetailPage() {
             </div>
           </PageHeaderActions>
         </PageHeader>
+
+        {/* 6-Gate Visual Workflow Progress Stepper (Dribbble SaaS Benchmark) */}
+        <Card className="border border-border/80 bg-card p-4 rounded-xl shadow-xs overflow-hidden">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1 flex items-center justify-between">
+            <span>Authoritative Workflow Lifecycle</span>
+            <span className="text-[11px] font-mono text-primary font-medium">Gate {currentGateIndex + 1} of 6</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            {workflowGates.map((gate, idx) => {
+              const isPast = idx < currentGateIndex;
+              const isCurrent = idx === currentGateIndex;
+              const isFuture = idx > currentGateIndex;
+
+              return (
+                <div
+                  key={gate.key}
+                  className={cn(
+                    'flex flex-col p-2.5 rounded-lg border text-xs transition-all',
+                    isCurrent
+                      ? 'border-primary/50 bg-primary/10 shadow-xs'
+                      : isPast
+                      ? 'border-emerald-500/30 bg-emerald-500/5 text-muted-foreground'
+                      : 'border-border/60 bg-muted/20 text-muted-foreground/60'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-mono font-bold text-muted-foreground tabular-nums">0{gate.order}</span>
+                    {isPast && <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
+                    {isCurrent && <span className="h-2 w-2 rounded-full bg-primary animate-pulse-subtle" />}
+                  </div>
+                  <span className={cn('font-semibold truncate', isCurrent ? 'text-primary' : isPast ? 'text-foreground' : 'text-muted-foreground')}>
+                    {gate.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
 
         {/* Action Panel for Clinical Triage & Transitions */}
         <Card className="border border-border/80 bg-muted/20">
@@ -219,7 +279,7 @@ export default function ReferralDetailPage() {
                       blockedReason: 'Missing signed clinical order',
                     })
                   }
-                  className="h-7 text-[11px] text-amber-600"
+                  className="h-7 text-[11px] text-amber-600 dark:text-amber-400"
                 >
                   Blocked / Needs Info
                 </Button>
@@ -227,7 +287,7 @@ export default function ReferralDetailPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => updateStatusMutation.mutate({ workStatus: WorkStatus.COMPLETED })}
-                  className="h-7 text-[11px] text-emerald-600"
+                  className="h-7 text-[11px] text-emerald-600 dark:text-emerald-400"
                 >
                   Complete Status
                 </Button>
@@ -339,7 +399,7 @@ export default function ReferralDetailPage() {
                     <option value={ClinicalReviewDecision.REJECT}>REJECT (Ineligible / Out of Service)</option>
                   </select>
                   <Input
-                    placeholder="Enter clinical rationale or notes..."
+                    placeholder="Enter clinical rationale or notes…"
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
                     className="h-8 text-xs flex-1"

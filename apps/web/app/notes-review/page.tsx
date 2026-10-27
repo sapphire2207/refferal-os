@@ -101,17 +101,17 @@ export default function NotesReviewPage() {
           <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-1">
             <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">
+                <CardTitle className="text-sm font-semibold text-foreground">
                   Awaiting QA ({qaQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
+                <Badge variant="outline" className="text-[10px] font-mono border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300">
                   NOTES_QA
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <LoadingState message="Loading documentation review queue..." />
+                <LoadingState message="Loading documentation review queue…" />
               ) : qaQueue.length === 0 ? (
                 <EmptyState
                   icon={FileCheck2}
@@ -129,7 +129,7 @@ export default function NotesReviewPage() {
                         key={ref.id}
                         onClick={() => setSelectedReferral(ref)}
                         className={`p-3.5 text-xs cursor-pointer transition-colors ${
-                          isSelected ? 'bg-zinc-100/70 border-l-2 border-zinc-900' : 'hover:bg-muted/30'
+                          isSelected ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted/40'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -149,7 +149,7 @@ export default function NotesReviewPage() {
                           variant={isSelected ? 'default' : 'outline'}
                           size="sm"
                           className={`h-6 text-[10px] w-full mt-2 font-medium ${
-                            isSelected ? 'bg-zinc-900 text-white' : 'border-border'
+                            isSelected ? 'bg-primary text-primary-foreground font-semibold' : 'border-border'
                           }`}
                         >
                           {isSelected ? 'Auditing Note' : 'Review Documentation'}
@@ -163,10 +163,10 @@ export default function NotesReviewPage() {
           </Card>
 
           {/* QA Audit Panel */}
-          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-2">
+          <Card className="border border-border/80 bg-card shadow-xs lg:col-span-2">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <FileCheck2 className="h-4 w-4 text-zinc-600" />
+                <FileCheck2 className="h-4 w-4 text-primary" />
                 Clinical Documentation Audit Panel
               </CardTitle>
               <CardDescription className="text-xs">
@@ -185,12 +185,12 @@ export default function NotesReviewPage() {
                 />
               ) : (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-lg border border-border/80 bg-zinc-50/60 space-y-3 text-xs">
+                  <div className="p-4 rounded-lg border border-border/80 bg-muted/20 space-y-3 text-xs">
                     <div className="flex items-center justify-between pb-2 border-b border-border/40">
                       <span className="font-semibold text-foreground">
                         Encounter Documentation Summary
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium font-mono bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                         Signed & Locked
                       </span>
                     </div>
@@ -204,15 +204,15 @@ export default function NotesReviewPage() {
 
                     <div className="pt-2">
                       <span className="text-muted-foreground block text-[11px]">Provider Attestation:</span>
-                      <div className="flex items-center gap-2 text-xs font-mono bg-white p-2.5 rounded border border-border/60 mt-1">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <div className="flex items-center gap-2 text-xs font-mono bg-background p-2.5 rounded border border-border mt-1">
+                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
                         <span>Signed by Nurse Practitioner (Credential verified)</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="reviewNotes" className="text-xs font-semibold text-zinc-800">
+                    <Label htmlFor="reviewNotes" className="text-xs font-semibold text-foreground">
                       QA Audit Findings & Review Notes
                     </Label>
                     <textarea
@@ -220,8 +220,8 @@ export default function NotesReviewPage() {
                       rows={3}
                       value={reviewNotes}
                       onChange={(e) => setReviewNotes(e.target.value)}
-                      placeholder="Verify diagnosis codes, medical necessity, and documentation completeness. If returning, specify required corrections..."
-                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      placeholder="Verify diagnosis codes, medical necessity, and documentation completeness. If returning, specify required corrections…"
+                      className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
 
@@ -233,7 +233,7 @@ export default function NotesReviewPage() {
                         reviewMutation.mutate({ decision: NoteReviewDecision.RETURN_FOR_CORRECTION })
                       }
                       disabled={reviewMutation.isPending}
-                      className="h-8 px-3.5 text-xs text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 gap-1.5 font-medium"
+                      className="h-8 px-3.5 text-xs text-amber-700 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 gap-1.5 font-medium"
                     >
                       <RotateCcw className="h-3.5 w-3.5" />
                       Return for Correction
@@ -244,7 +244,7 @@ export default function NotesReviewPage() {
                         reviewMutation.mutate({ decision: NoteReviewDecision.APPROVE })
                       }
                       disabled={reviewMutation.isPending}
-                      className="h-8 px-4 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 shadow-2xs"
+                      className="h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
                     >
                       {reviewMutation.isPending ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

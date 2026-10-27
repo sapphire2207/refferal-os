@@ -67,8 +67,8 @@ export default function PatientsPage() {
               <span>Refresh</span>
             </Button>
             <Link href="/referrals/new">
-              <Button size="sm" className="h-8 gap-1.5 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium shadow-2xs">
-                <PlusCircle className="h-3.5 w-3.5" />
+              <Button size="sm" className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs">
+                <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>New Patient & Referral</span>
               </Button>
             </Link>
@@ -78,25 +78,26 @@ export default function PatientsPage() {
         {/* Search & Counter Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
-              placeholder="Search by patient name, MRN, phone, DOB..."
+              aria-label="Search patients by name, MRN, phone, or date of birth"
+              placeholder="Search by patient name, MRN, phone, DOB…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs bg-white border-border"
+              className="h-8 pl-8 text-xs bg-background border-border/80"
             />
           </div>
-          <span className="text-xs text-muted-foreground font-mono">
-            {isLoading ? 'Querying registry...' : `${patients.length} patient record${patients.length === 1 ? '' : 's'}`}
+          <span className="text-xs text-muted-foreground font-mono tabular-nums">
+            {isLoading ? 'Querying registry…' : `${patients.length} patient record${patients.length === 1 ? '' : 's'}`}
           </span>
         </div>
 
         {/* Patients Table */}
-        <Card className="border border-border/80 bg-card shadow-2xs">
+        <Card className="border border-border/80 bg-card shadow-xs overflow-hidden rounded-xl">
           <CardContent className="p-0">
             {isLoading ? (
-              <LoadingState message="Loading patient records from registry..." />
+              <LoadingState message="Loading patient records from registry…" />
             ) : isError ? (
               <ErrorState
                 title="Could not load patient registry"
@@ -117,7 +118,7 @@ export default function PatientsPage() {
                 actionElement={
                   !searchQuery ? (
                     <Link href="/referrals/new">
-                      <Button size="sm" className="h-8 text-xs">
+                      <Button size="sm" className="h-8 text-xs bg-primary text-primary-foreground">
                         Create New Referral
                       </Button>
                     </Link>
@@ -127,38 +128,48 @@ export default function PatientsPage() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-muted/40 border-b border-border/80 text-muted-foreground uppercase text-[10px] tracking-wider">
+                  <thead className="bg-muted/30 border-b border-border/80 text-muted-foreground uppercase text-[10px] tracking-wider font-semibold">
                     <tr>
-                      <th className="py-2.5 px-4 font-semibold">MRN</th>
-                      <th className="py-2.5 px-4 font-semibold">Full Name</th>
-                      <th className="py-2.5 px-4 font-semibold">Date of Birth</th>
-                      <th className="py-2.5 px-4 font-semibold">Contact Phone</th>
-                      <th className="py-2.5 px-4 font-semibold">Site / State</th>
-                      <th className="py-2.5 px-4 font-semibold text-right">Actions</th>
+                      <th className="py-3 px-4">Patient Name & Profile</th>
+                      <th className="py-3 px-4">MRN</th>
+                      <th className="py-3 px-4">Date of Birth</th>
+                      <th className="py-3 px-4">Contact Phone</th>
+                      <th className="py-3 px-4">Site / Territory</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {patients.map((p) => (
-                      <tr key={p.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="py-3 px-4 font-mono font-medium text-foreground">{p.mrn || 'N/A'}</td>
-                        <td className="py-3 px-4 font-semibold text-foreground">
-                          {p.firstName} {p.lastName}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">{p.dateOfBirth}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{p.phone || 'N/A'}</td>
-                        <td className="py-3 px-4">
-                          <span className="text-muted-foreground font-medium">{p.site} ({p.state})</span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <Link href={`/patients/${p.id}`}>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs px-2 hover:bg-zinc-100 font-medium">
-                              View Profile
-                              <ArrowRight className="h-3 w-3 ml-1" />
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                    {patients.map((p) => {
+                      const initials = `${p.firstName?.[0] || ''}${p.lastName?.[0] || ''}`.toUpperCase() || 'PT';
+                      return (
+                        <tr key={p.id} className="hover:bg-muted/40 transition-colors">
+                          <td className="py-2.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[10px] border border-primary/20">
+                                {initials}
+                              </div>
+                              <span className="font-semibold text-foreground">
+                                {p.firstName} {p.lastName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-4 font-mono font-medium text-foreground tabular-nums">{p.mrn || 'N/A'}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground tabular-nums">{p.dateOfBirth}</td>
+                          <td className="py-2.5 px-4 text-muted-foreground tabular-nums">{p.phone || 'N/A'}</td>
+                          <td className="py-2.5 px-4">
+                            <span className="text-muted-foreground font-medium">{p.site} ({p.state})</span>
+                          </td>
+                          <td className="py-2.5 px-4 text-right">
+                            <Link href={`/patients/${p.id}`}>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs px-2.5 hover:bg-muted font-medium gap-1 text-primary">
+                                View Profile
+                                <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

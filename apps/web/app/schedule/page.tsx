@@ -107,9 +107,9 @@ export default function SchedulePage() {
             <Button
               size="sm"
               onClick={() => setIsBookingOpen(!isBookingOpen)}
-              className="h-8 gap-1.5 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium shadow-2xs"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
             >
-              <PlusCircle className="h-3.5 w-3.5" />
+              <PlusCircle className="h-3.5 w-3.5" aria-hidden="true" />
               <span>{isBookingOpen ? 'Close Dispatch Form' : 'Book Mobile Visit'}</span>
             </Button>
           </PageHeaderActions>
@@ -117,7 +117,7 @@ export default function SchedulePage() {
 
         {/* Booking Form Drawer / Card */}
         {isBookingOpen && (
-          <Card className="border border-border/80 bg-zinc-50/50 shadow-xs animate-in fade-in-50">
+          <Card className="border border-border/80 bg-muted/20 shadow-xs animate-in fade-in-50">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold">Schedule Mobile Nurse Practitioner Visit</CardTitle>
               <CardDescription className="text-xs">
@@ -127,14 +127,14 @@ export default function SchedulePage() {
             <CardContent className="space-y-4 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="referral" className="text-xs font-medium text-zinc-700">
+                  <Label htmlFor="referral" className="text-xs font-medium text-foreground">
                     Select Referral in SCHEDULING Stage *
                   </Label>
                   <select
                     id="referral"
                     value={selectedReferralId}
                     onChange={(e) => setSelectedReferralId(e.target.value)}
-                    className="w-full h-8 rounded-md border border-border bg-white px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                    className="w-full h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">-- Choose referral --</option>
                     {schedulingQueue.map((r: any) => (
@@ -146,7 +146,7 @@ export default function SchedulePage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="aptDate" className="text-xs font-medium text-zinc-700">
+                  <Label htmlFor="aptDate" className="text-xs font-medium text-foreground">
                     Date & Time *
                   </Label>
                   <Input
@@ -154,7 +154,7 @@ export default function SchedulePage() {
                     type="datetime-local"
                     value={appointmentDate}
                     onChange={(e) => setAppointmentDate(e.target.value)}
-                    className="h-8 text-xs bg-white border-border"
+                    className="h-8 text-xs bg-background border-border"
                     required
                   />
                 </div>
@@ -162,18 +162,18 @@ export default function SchedulePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="loc" className="text-xs font-medium text-zinc-700">
+                  <Label htmlFor="loc" className="text-xs font-medium text-foreground">
                     Visit Location
                   </Label>
                   <Input
                     id="loc"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="h-8 text-xs bg-white border-border"
+                    className="h-8 text-xs bg-background border-border"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="notes" className="text-xs font-medium text-zinc-700">
+                  <Label htmlFor="notes" className="text-xs font-medium text-foreground">
                     Scheduling Notes / Instructions
                   </Label>
                   <Input
@@ -181,7 +181,7 @@ export default function SchedulePage() {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="e.g. Ring buzzer 4B, caregiver present"
-                    className="h-8 text-xs bg-white border-border"
+                    className="h-8 text-xs bg-background border-border"
                   />
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function SchedulePage() {
                   size="sm"
                   onClick={() => bookMutation.mutate()}
                   disabled={!selectedReferralId || !appointmentDate || bookMutation.isPending}
-                  className="h-8 text-xs bg-zinc-900 text-white hover:bg-zinc-800 shadow-2xs font-medium"
+                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-semibold"
                 >
                   Confirm Appointment Booking
                 </Button>
@@ -212,7 +212,7 @@ export default function SchedulePage() {
                 <CardTitle className="text-sm font-semibold">
                   Awaiting Dispatch ({schedulingQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/20 bg-primary/10 text-primary">
                   SCHEDULING Stage
                 </Badge>
               </div>
@@ -242,7 +242,7 @@ export default function SchedulePage() {
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-2 flex items-center justify-between">
                         <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-zinc-400" />
+                          <MapPin className="h-3 w-3 text-muted-foreground" />
                           {ref.site}
                         </span>
                         <Button
@@ -252,7 +252,7 @@ export default function SchedulePage() {
                             setSelectedReferralId(ref.id);
                             setIsBookingOpen(true);
                           }}
-                          className="h-6 text-[10px] px-2 border-border font-medium hover:bg-zinc-100"
+                          className="h-6 text-[10px] px-2 border-border font-medium hover:bg-muted"
                         >
                           Book Visit
                         </Button>
@@ -265,7 +265,7 @@ export default function SchedulePage() {
           </Card>
 
           {/* Booked Appointments List */}
-          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-2">
+          <Card className="border border-border/80 bg-card shadow-xs lg:col-span-2">
             <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <div>
@@ -276,14 +276,14 @@ export default function SchedulePage() {
                     Confirming an appointment advances the referral to NP_VISIT
                   </CardDescription>
                 </div>
-                <span className="text-xs text-muted-foreground font-mono">
+                <span className="text-xs text-muted-foreground font-mono tabular-nums">
                   {appointments.length} scheduled
                 </span>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <LoadingState message="Loading scheduled encounters..." />
+                <LoadingState message="Loading scheduled encounters…" />
               ) : appointments.length === 0 ? (
                 <EmptyState
                   icon={Calendar}
@@ -294,11 +294,11 @@ export default function SchedulePage() {
               ) : (
                 <div className="divide-y divide-border/60">
                   {appointments.map((apt: any) => (
-                    <div key={apt.id} className="p-4 hover:bg-muted/30 transition-colors flex items-center justify-between text-xs gap-4">
+                    <div key={apt.id} className="p-4 hover:bg-muted/40 transition-colors flex items-center justify-between text-xs gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-                          <span className="font-semibold text-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                          <span className="font-semibold text-foreground tabular-nums">
                             {new Date(apt.appointmentDate).toLocaleString([], {
                               month: 'short',
                               day: 'numeric',
@@ -308,10 +308,10 @@ export default function SchedulePage() {
                           </span>
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium font-mono ${
                             apt.status === 'CONFIRMED'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
                               : apt.status === 'NO_SHOW'
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+                              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
+                              : 'bg-muted text-muted-foreground border border-border'
                           }`}>
                             {apt.status}
                           </span>
@@ -321,7 +321,7 @@ export default function SchedulePage() {
                           {apt.referral && (
                             <>
                               <span> • </span>
-                              <Link href={`/referrals/${apt.referral.id}`} className="hover:underline font-mono text-zinc-700">
+                              <Link href={`/referrals/${apt.referral.id}`} className="hover:underline font-mono text-primary font-medium">
                                 Ref: {apt.referral.trackingNumber}
                               </Link>
                             </>
@@ -334,7 +334,7 @@ export default function SchedulePage() {
                           <Button
                             size="sm"
                             onClick={() => updateStatusMutation.mutate({ id: apt.id, status: 'CONFIRMED' })}
-                            className="h-7 text-[11px] bg-zinc-900 text-white hover:bg-zinc-800 shadow-2xs font-medium"
+                            className="h-7 text-[11px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-semibold"
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Confirm (NP Visit)
@@ -357,7 +357,7 @@ export default function SchedulePage() {
                               notes: 'Patient not home',
                             });
                           }}
-                          className="h-7 text-[11px] text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 font-medium"
+                          className="h-7 text-[11px] text-amber-700 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 font-medium"
                         >
                           No Show
                         </Button>

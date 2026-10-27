@@ -27,7 +27,7 @@ export default function PatientDetailPage() {
     return (
       <AppLayout title="Patient Profile">
         <div className="space-y-6 max-w-5xl mx-auto py-4">
-          <LoadingState message="Retrieving patient demographic profile..." />
+          <LoadingState message="Retrieving patient demographic profile…" />
         </div>
       </AppLayout>
     );

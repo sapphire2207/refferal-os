@@ -4,42 +4,16 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, extractApiList } from '@/lib/api-client';
-import { useWorkspace } from '@/providers/workspace-context';
-import { useAuth } from '@/providers/auth-context';
 import { AppLayout } from '@/components/app-layout';
 import { DashboardDataTable } from './dashboard-data-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { MetricCard } from '@/components/ui/metric-card';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
   Plus,
-  Search,
-  MoreVertical,
   Calendar,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  UserCheck,
   Stethoscope,
-  Receipt,
-  FileCheck2,
   Inbox,
-  Activity,
   Layers,
-  ArrowUpRight,
-  Eye,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -81,7 +55,7 @@ interface ReferralRecord {
   updatedAt: string;
 }
 
-// Chart dataset with realistic trend curve matching img1
+// Chart dataset with realistic trend curve matching modern clinical operations
 const CHART_DATA_30_DAYS = [
   { date: 'Apr 7', referrals: 4, completed: 2 },
   { date: 'Apr 13', referrals: 7, completed: 3 },
@@ -100,13 +74,11 @@ const CHART_DATA_30_DAYS = [
 ];
 
 export default function DashboardPage() {
-  const { activeWorkspace } = useWorkspace();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'ALL' | 'INTAKE' | 'CLINICAL_REVIEW' | 'SCHEDULING' | 'URGENT'>('ALL');
   const [timeRange, setTimeRange] = useState<'3m' | '30d' | '7d'>('30d');
 
   // 1. Fetch real dashboard metrics
-  const { data: metrics, isLoading: isMetricsLoading } = useQuery<DashboardMetricsResponse>({
+  const { data: metrics } = useQuery<DashboardMetricsResponse>({
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
       return apiClient.get<DashboardMetricsResponse>('/referrals/dashboard/metrics');
@@ -162,125 +134,100 @@ export default function DashboardPage() {
   return (
     <AppLayout title="Dashboard">
       <div className="space-y-6 pb-8">
-        {/* ROW 1: 4 Key Metric Cards (Matching img1 exactly) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total Active Referrals */}
-          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Total Active Cases</span>
-              <Badge
-                variant="outline"
-                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
-              >
-                +12.5%
-              </Badge>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-foreground">
-                {metrics?.totalActive ?? totalCount}
+        {/* Operations Command Header Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-1 border-b border-border/60">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>Referral Operations Command</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-subtle" />
+                Live Feed
               </span>
-            </div>
-            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/80 flex items-center gap-1">
-                Trending up this month <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-              </p>
-              <p className="text-[11px] text-muted-foreground/80">Active across authorized scope</p>
-            </div>
-          </Card>
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Authoritative clinical triage, gate validations, and mobile NP encounter pipeline.
+            </p>
+          </div>
 
-          {/* Card 2: Intake Queue */}
-          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Intake Verification</span>
-              <Badge
-                variant="outline"
-                className="text-[11px] font-mono gap-1 font-semibold text-neutral-600 bg-neutral-100 border-neutral-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
-              >
-                -20%
-              </Badge>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-foreground">
-                {intakeCount}
-              </span>
-            </div>
-            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/80 flex items-center gap-1">
-                Down 20% this period <TrendingDown className="h-3.5 w-3.5 text-neutral-500" />
-              </p>
-              <p className="text-[11px] text-muted-foreground/80">Awaiting eligibility triage</p>
-            </div>
-          </Card>
-
-          {/* Card 3: Clinical Review */}
-          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Clinical Review</span>
-              <Badge
-                variant="outline"
-                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
-              >
-                +12.5%
-              </Badge>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-foreground">
-                {reviewCount}
-              </span>
-            </div>
-            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/80 flex items-center gap-1">
-                Strong physician throughput <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-              </p>
-              <p className="text-[11px] text-muted-foreground/80">Determination turnaround &lt; 24h</p>
-            </div>
-          </Card>
-
-          {/* Card 4: Growth / Schedule Rate */}
-          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">Dispatch Readiness</span>
-              <Badge
-                variant="outline"
-                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
-              >
-                +4.5%
-              </Badge>
-            </div>
-            <div className="mt-3">
-              <span className="text-3xl font-bold tracking-tight text-foreground">
-                {schedCount}
-              </span>
-            </div>
-            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground/80 flex items-center gap-1">
-                Steady performance increase <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-              </p>
-              <p className="text-[11px] text-muted-foreground/80">Meets SLA dispatch projections</p>
-            </div>
-          </Card>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/referrals/new"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all focus-visible:ring-2 focus-visible:ring-primary/40 select-none"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Create Referral</span>
+            </Link>
+          </div>
         </div>
 
-        {/* ROW 2: Big Chart Card (Area Chart matching img1 exactly) */}
-        <Card className="rounded-xl border border-border/80 bg-card shadow-xs">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3">
+        {/* ROW 1: 4 Key Metric Cards (Top-Tier SaaS Visual Hierarchy) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Total Active Pipeline"
+            value={metrics?.totalActive ?? totalCount}
+            delta="+12.5%"
+            isPositive={true}
+            icon={Layers}
+            accentColor="blue"
+            subtext="Active across authorized scope"
+          />
+
+          <MetricCard
+            title="Intake Triage Queue"
+            value={intakeCount}
+            delta="-20.0%"
+            isPositive={false}
+            icon={Inbox}
+            accentColor="amber"
+            subtext="Awaiting insurance & eligibility triage"
+          />
+
+          <MetricCard
+            title="Clinical MD/NP Review"
+            value={reviewCount}
+            delta="+12.5%"
+            isPositive={true}
+            icon={Stethoscope}
+            accentColor="purple"
+            subtext="Determination SLA turnaround < 24h"
+          />
+
+          <MetricCard
+            title="Scheduled NP Dispatch"
+            value={schedCount}
+            delta="+4.5%"
+            isPositive={true}
+            icon={Calendar}
+            accentColor="emerald"
+            subtext="Encounter bookings on schedule"
+          />
+        </div>
+
+        {/* ROW 2: Big Chart Card (Lush Clinical Azure & Vital Emerald Area Chart) */}
+        <Card className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3 bg-muted/10 border-b border-border/50">
             <div>
-              <CardTitle className="text-base font-semibold tracking-tight text-foreground">
-                Total Referral Inflow & Velocity
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+                  Referral Volume & Clinical Transition Velocity
+                </CardTitle>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                  92.4% SLA Fulfillment
+                </span>
+              </div>
               <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                Total referral admissions and clinical transitions over time
+                Comparison of daily patient intake volume versus completed mobile NP encounters.
               </CardDescription>
             </div>
 
-            {/* Segmented Control Buttons (matching img1) */}
-            <div className="flex items-center rounded-lg border border-border p-1 bg-muted/30">
+            {/* Segmented Control Buttons */}
+            <div className="flex items-center rounded-lg border border-border/80 p-0.5 bg-muted/40 shadow-2xs">
               <button
                 type="button"
                 onClick={() => setTimeRange('3m')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
                   timeRange === '3m'
-                    ? 'bg-background text-foreground shadow-2xs'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -289,9 +236,9 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setTimeRange('30d')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
                   timeRange === '30d'
-                    ? 'bg-background text-foreground shadow-2xs'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -300,9 +247,9 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setTimeRange('7d')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
                   timeRange === '7d'
-                    ? 'bg-background text-foreground shadow-2xs'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -311,7 +258,24 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
 
-          <CardContent className="pt-2 px-3 pb-5">
+          <CardContent className="pt-4 px-4 pb-5">
+            {/* Legend & Stats Quick Bar */}
+            <div className="flex items-center justify-between pb-3 text-xs border-b border-border/40 mb-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 font-medium text-foreground">
+                  <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />
+                  <span>Inflow Volume</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-medium text-foreground">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span>Completed Encounters</span>
+                </div>
+              </div>
+              <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
+                Avg. Triage Turnaround: 18.4h
+              </span>
+            </div>
+
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
@@ -319,56 +283,62 @@ export default function DashboardPage() {
                   margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
                 >
                   <defs>
-                    {/* Primary Dark/Charcoal Gradient */}
-                    <linearGradient id="primaryAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#18181b" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#18181b" stopOpacity={0.0} />
+                    {/* Clinical Azure Gradient */}
+                    <linearGradient id="clinicalAzureGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
                     </linearGradient>
-                    {/* Secondary Slate Gradient */}
-                    <linearGradient id="secondaryAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#71717a" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#71717a" stopOpacity={0.0} />
+                    {/* Vital Emerald Gradient */}
+                    <linearGradient id="vitalEmeraldGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" opacity={0.6} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-border/60" opacity={0.5} />
                   <XAxis
                     dataKey="date"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: '#71717a' }}
+                    tick={{ fontSize: 11, fill: 'currentColor' }}
+                    className="text-muted-foreground font-mono"
                     dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 11, fill: '#71717a' }}
+                    tick={{ fontSize: 11, fill: 'currentColor' }}
+                    className="text-muted-foreground font-mono"
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'var(--popover)',
                       borderColor: 'var(--border)',
-                      borderRadius: '8px',
+                      borderRadius: '10px',
                       fontSize: '12px',
-                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     }}
+                    formatter={(value: any, name: any) => [
+                      <span className="font-semibold text-foreground tabular-nums" key="val">{value} cases</span>,
+                      name === 'referrals' ? 'Inflow Volume' : 'Completed Encounters'
+                    ]}
                   />
                   <Area
-                    type="natural"
+                    type="monotone"
                     dataKey="referrals"
-                    name="Inflow Volume"
-                    stroke="#18181b"
+                    name="referrals"
+                    stroke="#2563eb"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#clinicalAzureGrad)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="completed"
+                    name="completed"
+                    stroke="#10b981"
                     strokeWidth={2}
                     fillOpacity={1}
-                    fill="url(#primaryAreaGrad)"
-                  />
-                  <Area
-                    type="natural"
-                    dataKey="completed"
-                    name="Completed Encounters"
-                    stroke="#71717a"
-                    strokeWidth={1.5}
-                    fillOpacity={1}
-                    fill="url(#secondaryAreaGrad)"
+                    fill="url(#vitalEmeraldGrad)"
                   />
                 </AreaChart>
               </ResponsiveContainer>

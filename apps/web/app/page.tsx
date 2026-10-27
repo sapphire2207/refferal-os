@@ -22,12 +22,12 @@ export default function RootPage() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-700 text-white shadow-md">
           <span className="font-bold text-lg tracking-wider">H+W</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Initializing Heals on Wheels...</span>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+          <span>Initializing ReferralOS…</span>
         </div>
       </div>
     </div>

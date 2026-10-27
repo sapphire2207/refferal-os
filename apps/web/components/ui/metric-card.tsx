@@ -10,6 +10,7 @@ interface MetricCardProps extends React.HTMLAttributes<HTMLDivElement> {
   delta?: string;
   isPositive?: boolean;
   subtext?: string;
+  accentColor?: 'blue' | 'emerald' | 'amber' | 'rose' | 'purple';
 }
 
 export function MetricCard({
@@ -19,13 +20,31 @@ export function MetricCard({
   delta,
   isPositive,
   subtext,
+  accentColor = 'blue',
   className,
   ...props
 }: MetricCardProps) {
+  const accentClasses = {
+    blue: 'hover:border-primary/40 group-hover:text-primary',
+    emerald: 'hover:border-emerald-500/40 group-hover:text-emerald-500',
+    amber: 'hover:border-amber-500/40 group-hover:text-amber-500',
+    rose: 'hover:border-rose-500/40 group-hover:text-rose-500',
+    purple: 'hover:border-purple-500/40 group-hover:text-purple-500',
+  }[accentColor];
+
+  const iconBgClasses = {
+    blue: 'bg-primary/10 text-primary border-primary/20',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+    purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+  }[accentColor];
+
   return (
     <Card
       className={cn(
-        'rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm',
+        'group relative overflow-hidden rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+        accentClasses,
         className,
       )}
       {...props}
@@ -33,25 +52,27 @@ export function MetricCard({
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">{title}</span>
         {Icon && (
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-muted/40">
-            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg border transition-transform duration-200 group-hover:scale-105', iconBgClasses)}>
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </div>
         )}
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between">
-        <span className="text-2xl font-bold tracking-tight text-foreground">{value}</span>
+      <div className="mt-3.5 flex items-baseline justify-between gap-2">
+        <span className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{value}</span>
         {delta && (
           <div
             className={cn(
-              'flex items-center gap-1 text-[11px] font-semibold',
-              isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border tabular-nums',
+              isPositive 
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
             )}
           >
             {isPositive ? (
-              <TrendingUp className="h-3 w-3" />
+              <TrendingUp className="h-3 w-3 shrink-0" aria-hidden="true" />
             ) : (
-              <TrendingDown className="h-3 w-3" />
+              <TrendingDown className="h-3 w-3 shrink-0" aria-hidden="true" />
             )}
             <span>{delta}</span>
           </div>
@@ -59,7 +80,7 @@ export function MetricCard({
       </div>
 
       {subtext && (
-        <span className="mt-1 block text-[11px] text-muted-foreground">{subtext}</span>
+        <span className="mt-2 block text-[11px] text-muted-foreground/90 font-medium">{subtext}</span>
       )}
     </Card>
   );

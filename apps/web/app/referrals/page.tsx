@@ -64,6 +64,7 @@ import {
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/use-debounce';
+import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components/ui/status-badge';
 
 interface ReferralRecord {
   id: string;
@@ -312,10 +313,11 @@ export default function ReferralsPage() {
         {/* Filter and Search Bar using newly styled Shadcn Selects */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
-              placeholder="Search patient, MRN, tracking #..."
+              aria-label="Search referrals by patient name, MRN, or tracking number"
+              placeholder="Search patient, MRN, tracking #…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 pl-8 text-xs bg-background"
@@ -354,8 +356,8 @@ export default function ReferralsPage() {
             </Select>
           </div>
 
-          <div className="ml-auto text-xs text-muted-foreground font-mono">
-            {isLoading ? 'Loading cases...' : `${referrals.length} active referrals`}
+          <div className="ml-auto text-xs text-muted-foreground font-mono tabular-nums">
+            {isLoading ? 'Loading cases…' : `${referrals.length} active referrals`}
           </div>
         </div>
 
@@ -439,8 +441,8 @@ export default function ReferralsPage() {
                   {isLoading ? (
                     <tr>
                       <td colSpan={10} className="py-12 text-center text-muted-foreground">
-                        <Clock className="h-4 w-4 animate-spin mx-auto mb-1" />
-                        <span>Loading referrals...</span>
+                        <Clock className="h-4 w-4 animate-spin mx-auto mb-1 text-primary" aria-hidden="true" />
+                        <span>Loading referrals…</span>
                       </td>
                     </tr>
                   ) : referrals.length === 0 ? (
@@ -475,39 +477,13 @@ export default function ReferralsPage() {
                             </div>
                           </td>
                           <td className="py-3 px-4">
-                            <Badge variant="outline" className="text-[10px] font-medium">
-                              {r.pipelineStage.replace('_', ' ')}
-                            </Badge>
+                            <PipelineStageBadge stage={r.pipelineStage} />
                           </td>
                           <td className="py-3 px-4">
-                            <span className="inline-flex items-center gap-1.5 text-xs text-foreground/80">
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  r.workStatus === WorkStatus.IN_PROGRESS
-                                    ? 'bg-emerald-500'
-                                    : r.workStatus === WorkStatus.BLOCKED_NEEDS_INFO
-                                    ? 'bg-amber-500'
-                                    : 'bg-neutral-400'
-                                }`}
-                              />
-                              {r.workStatus.replace('_', ' ')}
-                            </span>
+                            <WorkStatusBadge status={r.workStatus} />
                           </td>
                           <td className="py-3 px-4">
-                            {r.priority === Priority.STAT ? (
-                              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 font-bold uppercase">
-                                STAT
-                              </Badge>
-                            ) : r.priority === Priority.URGENT ? (
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] px-1.5 py-0 font-semibold uppercase border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                              >
-                                URGENT
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs font-mono">Routine</span>
-                            )}
+                            <PriorityBadge priority={r.priority} />
                           </td>
                           <td className="py-3 px-4">
                             <span className="text-xs text-foreground/80 truncate block max-w-[140px]">

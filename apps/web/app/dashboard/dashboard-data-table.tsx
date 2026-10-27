@@ -28,7 +28,6 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -46,6 +45,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components/ui/status-badge';
 import {
   Search,
   Plus,
@@ -62,7 +63,6 @@ import {
   ChevronsRight,
   Eye,
   Activity,
-  UserCheck,
   ArrowUpDown,
 } from 'lucide-react';
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
@@ -129,17 +129,17 @@ export function DashboardDataTable({
                 table.getIsSomePageRowsSelected() && !table.getIsAllPageRowsSelected()
               }
               onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-              aria-label="Select all"
+              aria-label="Select all cases"
             />
           </div>
         ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2 pl-1">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing" />
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing" aria-hidden="true" />
             <Checkbox
               checked={row.getIsSelected()}
               onCheckedChange={(value) => row.toggleSelected(!!value)}
-              aria-label="Select row"
+              aria-label="Select case row"
             />
           </div>
         ),
@@ -156,23 +156,33 @@ export function DashboardDataTable({
             className="flex items-center gap-1 font-semibold text-foreground hover:text-foreground/80 transition-colors"
           >
             <span>Patient Name & MRN</span>
-            <ArrowUpDown className="h-3 w-3 opacity-60" />
+            <ArrowUpDown className="h-3 w-3 opacity-60" aria-hidden="true" />
           </button>
         ),
         cell: ({ row }) => {
           const r = row.original;
+          const initials = `${r.patient?.firstName?.[0] || ''}${r.patient?.lastName?.[0] || ''}`.toUpperCase() || 'PT';
           const mrn = r.patient?.medicalRecordNumber || 'MRN-Pending';
           return (
-            <div className="flex flex-col py-0.5">
-              <Link
-                href={`/referrals/${r.id}`}
-                className="font-semibold text-foreground hover:underline text-xs truncate max-w-[200px]"
-              >
-                {r.patient?.firstName} {r.patient?.lastName}
-              </Link>
-              <span className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                {mrn} • {r.trackingNumber}
-              </span>
+            <div className="flex items-center gap-2.5 py-1 min-w-0">
+              <Avatar className="h-8 w-8 shrink-0 border border-border/80 bg-muted/60">
+                <AvatarFallback className="text-[11px] font-bold text-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0">
+                <Link
+                  href={`/referrals/${r.id}`}
+                  className="font-semibold text-foreground hover:text-primary hover:underline text-xs truncate max-w-[200px]"
+                >
+                  {r.patient?.firstName} {r.patient?.lastName}
+                </Link>
+                <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground mt-0.5 tabular-nums">
+                  <span>{mrn}</span>
+                  <span>•</span>
+                  <span className="text-muted-foreground/80">{r.trackingNumber}</span>
+                </div>
+              </div>
             </div>
           );
         },
@@ -181,82 +191,19 @@ export function DashboardDataTable({
         id: 'stage',
         accessorKey: 'pipelineStage',
         header: 'Stage',
-        cell: ({ row }) => {
-          const stage = row.original.pipelineStage;
-          const style =
-            stage === PipelineStage.INTAKE
-              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-              : stage === PipelineStage.CLINICAL_REVIEW
-              ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
-              : stage === PipelineStage.SCHEDULING
-              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
-              : stage === PipelineStage.NP_VISIT
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
-              : stage === PipelineStage.NOTES_QA
-              ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300'
-              : 'bg-neutral-100 text-neutral-700 border-neutral-300 dark:bg-neutral-800 dark:text-neutral-300';
-
-          return (
-            <Badge variant="outline" className={`text-[10px] font-medium ${style}`}>
-              {stage.replace('_', ' ')}
-            </Badge>
-          );
-        },
+        cell: ({ row }) => <PipelineStageBadge stage={row.original.pipelineStage} />,
       },
       {
         id: 'workStatus',
         accessorKey: 'workStatus',
         header: 'Status',
-        cell: ({ row }) => {
-          const status = row.original.workStatus;
-          const isDone = status === WorkStatus.IN_PROGRESS;
-          const isNeedsInfo = status === WorkStatus.BLOCKED_NEEDS_INFO;
-
-          return (
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
-                isDone
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                  : isNeedsInfo
-                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                  : 'border-border/80 bg-muted/40 text-muted-foreground'
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  isDone ? 'bg-emerald-500' : isNeedsInfo ? 'bg-amber-500' : 'bg-neutral-400'
-                }`}
-              />
-              {status.replace('_', ' ')}
-            </span>
-          );
-        },
+        cell: ({ row }) => <WorkStatusBadge status={row.original.workStatus} />,
       },
       {
         id: 'priority',
         accessorKey: 'priority',
         header: 'Priority',
-        cell: ({ row }) => {
-          const p = row.original.priority;
-          if (p === Priority.STAT) {
-            return (
-              <Badge variant="destructive" className="text-[9px] px-1.5 py-0 font-bold uppercase">
-                STAT
-              </Badge>
-            );
-          }
-          if (p === Priority.URGENT) {
-            return (
-              <Badge
-                variant="outline"
-                className="text-[9px] px-1.5 py-0 font-semibold uppercase border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-              >
-                URGENT
-              </Badge>
-            );
-          }
-          return <span className="text-muted-foreground text-xs font-mono">Routine</span>;
-        },
+        cell: ({ row }) => <PriorityBadge priority={row.original.priority} />,
       },
       {
         id: 'insurancePayer',
@@ -407,87 +354,106 @@ export function DashboardDataTable({
       {/* Top Header Bar with Filter Tabs and Column Customizer (Matching img2) */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 border-b border-border/80 gap-3 bg-muted/20">
         {/* Left: Filter Tabs with Clean Badge Counts */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Referral queues">
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'ALL'}
             onClick={() => setActiveTab('ALL')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'ALL'
-                ? 'bg-background text-foreground shadow-2xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-xs border border-border font-semibold'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
             }`}
           >
             <span>All Cases</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+            <span className="rounded-full bg-muted/80 px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground tabular-nums">
               {counts.total}
             </span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'INTAKE'}
             onClick={() => setActiveTab('INTAKE')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'INTAKE'
-                ? 'bg-background text-foreground shadow-2xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-xs border border-border font-semibold text-blue-700 dark:text-blue-400'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
             }`}
           >
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" aria-hidden="true" />
             <span>Intake Queue</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+            <span className="rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 px-1.5 py-0.2 text-[10px] font-semibold tabular-nums">
               {counts.intake}
             </span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'CLINICAL_REVIEW'}
             onClick={() => setActiveTab('CLINICAL_REVIEW')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'CLINICAL_REVIEW'
-                ? 'bg-background text-foreground shadow-2xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-xs border border-border font-semibold text-purple-700 dark:text-purple-400'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
             }`}
           >
+            <span className="h-1.5 w-1.5 rounded-full bg-purple-500" aria-hidden="true" />
             <span>Clinical Review</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+            <span className="rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 px-1.5 py-0.2 text-[10px] font-semibold tabular-nums">
               {counts.review}
             </span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'SCHEDULING'}
             onClick={() => setActiveTab('SCHEDULING')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'SCHEDULING'
-                ? 'bg-background text-foreground shadow-2xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-background text-foreground shadow-xs border border-border font-semibold text-amber-700 dark:text-amber-400'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
             }`}
           >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
             <span>Scheduling</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+            <span className="rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 px-1.5 py-0.2 text-[10px] font-semibold tabular-nums">
               {counts.scheduling}
             </span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'URGENT'}
             onClick={() => setActiveTab('URGENT')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               activeTab === 'URGENT'
-                ? 'bg-background text-foreground shadow-2xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
+                ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 font-semibold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
             }`}
           >
-            <span>Urgent</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-semibold text-muted-foreground">
+            {counts.urgent > 0 ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse-subtle" aria-hidden="true" />
+            ) : (
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-400" aria-hidden="true" />
+            )}
+            <span>Urgent / STAT</span>
+            <span className="rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
               {counts.urgent}
             </span>
           </button>
         </div>
 
-        {/* Right Controls: Search, Customize Columns, View Kanban, + New Referral */}
+        {/* Right Controls: Search, Customize Columns */}
         <div className="flex items-center gap-2">
           {/* Global Search Input */}
-          <div className="relative min-w-[180px] max-w-[220px]">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <div className="relative min-w-[200px] max-w-[260px]">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
-              placeholder="Filter cases..."
+              aria-label="Filter cases by patient name, MRN, or tracking number"
+              placeholder="Filter cases by name, MRN…"
               value={globalFilter}
               onChange={(e) => {
                 const val = e.target.value;

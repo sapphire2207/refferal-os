@@ -114,14 +114,14 @@ export default function BillingPage() {
                 <CardTitle className="text-sm font-semibold">
                   Billing Ready Queue ({billingQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
+                <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
                   BILLING
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {isQueueLoading ? (
-                <LoadingState message="Loading billing queue..." />
+                <LoadingState message="Loading billing queue…" />
               ) : billingQueue.length === 0 ? (
                 <EmptyState
                   icon={Receipt}
@@ -288,7 +288,7 @@ export default function BillingPage() {
           </CardHeader>
           <CardContent className="p-0">
             {isClaimsLoading ? (
-              <LoadingState message="Loading claims registry..." />
+              <LoadingState message="Loading claims registry…" />
             ) : claims.length === 0 ? (
               <EmptyState
                 icon={Receipt}

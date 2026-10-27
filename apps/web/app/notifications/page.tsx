@@ -105,7 +105,7 @@ export default function NotificationsPage() {
         <Card className="border border-border/80 bg-card shadow-2xs">
           <CardContent className="p-0">
             {isLoading ? (
-              <LoadingState message="Loading operational alerts..." />
+              <LoadingState message="Loading operational alerts…" />
             ) : displayedNotifications.length === 0 ? (
               <EmptyState
                 icon={Bell}

@@ -113,14 +113,14 @@ export default function VisitsPage() {
                 <CardTitle className="text-sm font-semibold">
                   Pending Visits ({visitQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/20 bg-primary/10 text-primary">
                   NP_VISIT
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <LoadingState message="Loading mobile clinical visit queue..." />
+                <LoadingState message="Loading mobile clinical visit queue…" />
               ) : visitQueue.length === 0 ? (
                 <EmptyState
                   icon={Stethoscope}
@@ -138,7 +138,7 @@ export default function VisitsPage() {
                         key={ref.id}
                         onClick={() => setSelectedReferral(ref)}
                         className={`p-3.5 text-xs cursor-pointer transition-colors ${
-                          isSelected ? 'bg-zinc-100/70 border-l-2 border-zinc-900' : 'hover:bg-muted/30'
+                          isSelected ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted/40'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -158,7 +158,7 @@ export default function VisitsPage() {
                           variant={isSelected ? 'default' : 'outline'}
                           size="sm"
                           className={`h-6 text-[10px] w-full mt-2 font-medium ${
-                            isSelected ? 'bg-zinc-900 text-white' : 'border-border'
+                            isSelected ? 'bg-primary text-primary-foreground font-semibold' : 'border-border'
                           }`}
                         >
                           {isSelected ? 'Currently Documenting' : 'Document Visit'}
@@ -172,10 +172,10 @@ export default function VisitsPage() {
           </Card>
 
           {/* SOAP Clinical Note Documentation Workspace */}
-          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-2">
+          <Card className="border border-border/80 bg-card shadow-xs lg:col-span-2">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <PenTool className="h-4 w-4 text-zinc-600" />
+                <PenTool className="h-4 w-4 text-primary" />
                 SOAP Clinical Encounter Note
               </CardTitle>
               <CardDescription className="text-xs">
@@ -196,84 +196,84 @@ export default function VisitsPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="dos" className="text-xs font-medium text-zinc-700">Date of Service *</Label>
+                      <Label htmlFor="dos" className="text-xs font-medium text-foreground">Date of Service *</Label>
                       <Input
                         id="dos"
                         type="date"
                         value={dateOfService}
                         onChange={(e) => setDateOfService(e.target.value)}
-                        className="h-8 text-xs bg-white border-border"
+                        className="h-8 text-xs bg-background border-border"
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="services" className="text-xs font-medium text-zinc-700">Services Provided</Label>
+                      <Label htmlFor="services" className="text-xs font-medium text-foreground">Services Provided</Label>
                       <Input
                         id="services"
                         value={servicesProvided}
                         onChange={(e) => setServicesProvided(e.target.value)}
-                        className="h-8 text-xs bg-white border-border"
+                        className="h-8 text-xs bg-background border-border"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="subj" className="text-xs font-semibold text-zinc-800">Subjective (S)</Label>
+                    <Label htmlFor="subj" className="text-xs font-semibold text-foreground">Subjective (S)</Label>
                     <textarea
                       id="subj"
                       rows={2}
                       value={subjective}
                       onChange={(e) => setSubjective(e.target.value)}
-                      placeholder="Chief complaint, patient history, reported symptoms..."
-                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      placeholder="Chief complaint, patient history, reported symptoms…"
+                      className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="obj" className="text-xs font-semibold text-zinc-800">Objective (O)</Label>
+                    <Label htmlFor="obj" className="text-xs font-semibold text-foreground">Objective (O)</Label>
                     <textarea
                       id="obj"
                       rows={2}
                       value={objective}
                       onChange={(e) => setObjective(e.target.value)}
-                      placeholder="Vital signs, physical exam observations, mobility status..."
-                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      placeholder="Vital signs, physical exam observations, mobility status…"
+                      className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="assess" className="text-xs font-semibold text-zinc-800">Assessment (A)</Label>
+                    <Label htmlFor="assess" className="text-xs font-semibold text-foreground">Assessment (A)</Label>
                     <textarea
                       id="assess"
                       rows={2}
                       value={assessment}
                       onChange={(e) => setAssessment(e.target.value)}
-                      placeholder="Primary clinical diagnoses, clinical impression..."
-                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      placeholder="Primary clinical diagnoses, clinical impression…"
+                      className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="plan" className="text-xs font-semibold text-zinc-800">Plan (P)</Label>
+                    <Label htmlFor="plan" className="text-xs font-semibold text-foreground">Plan (P)</Label>
                     <textarea
                       id="plan"
                       rows={2}
                       value={plan}
                       onChange={(e) => setPlan(e.target.value)}
-                      placeholder="Treatment orders, prescriptions, caregiver education, follow-up cadence..."
-                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                      placeholder="Treatment orders, prescriptions, caregiver education, follow-up cadence…"
+                      className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     />
                   </div>
 
-                  <div className="p-3.5 bg-zinc-50 rounded-lg border border-border/80 space-y-2">
+                  <div className="p-3.5 bg-muted/30 rounded-lg border border-border/80 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                      <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                       Digital Signature & Attestation
                     </div>
                     <Input
                       value={signature}
                       onChange={(e) => setSignature(e.target.value)}
-                      className="h-8 text-xs font-mono bg-white border-border"
+                      className="h-8 text-xs font-mono bg-background border-border/80"
                     />
                     <p className="text-[11px] text-muted-foreground">
                       Signing locks note revision immutably and immediately routes case to Notes QA Review.
@@ -285,16 +285,16 @@ export default function VisitsPage() {
                       size="sm"
                       onClick={() => submitEncounterMutation.mutate()}
                       disabled={!subjective || !objective || !assessment || !plan || submitEncounterMutation.isPending}
-                      className="h-8 px-4 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 shadow-2xs"
+                      className="h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
                     >
                       {submitEncounterMutation.isPending ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Submitting & Signing...
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                          Submitting & Signing…
                         </>
                       ) : (
                         <>
-                          <CheckCircle className="h-3.5 w-3.5" />
+                          <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
                           Sign & Route to Notes QA
                         </>
                       )}

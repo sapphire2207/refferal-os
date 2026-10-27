@@ -335,8 +335,8 @@ export default function NewReferralPage() {
                   rows={3}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Document primary diagnosis, mobility restrictions, homebound reason..."
-                  className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Document primary diagnosis, mobility restrictions, homebound reason…"
+                  className="w-full rounded-md border border-border/80 bg-background p-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                 />
               </div>
             </CardContent>
@@ -360,8 +360,8 @@ export default function NewReferralPage() {
             >
               {createReferralMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Creating...
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Creating…
                 </>
               ) : (
                 <>

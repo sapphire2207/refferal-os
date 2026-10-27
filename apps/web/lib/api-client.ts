@@ -91,7 +91,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       ...rest,
       headers,
     });

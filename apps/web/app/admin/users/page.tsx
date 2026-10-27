@@ -217,9 +217,9 @@ export default function UsersAdminPage() {
                   size="sm"
                   onClick={() => inviteMutation.mutate()}
                   disabled={!email || !firstName || !lastName || inviteMutation.isPending}
-                  className="h-8 text-xs bg-zinc-900 text-white hover:bg-zinc-800 shadow-2xs font-medium"
+                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-semibold"
                 >
-                  {inviteMutation.isPending ? 'Sending...' : 'Send Cryptographic Invite'}
+                  {inviteMutation.isPending ? 'Sending…' : 'Send Cryptographic Invite'}
                 </Button>
               </div>
             </CardContent>
@@ -227,10 +227,10 @@ export default function UsersAdminPage() {
         )}
 
         {/* Users Table */}
-        <Card className="border border-border/80 bg-card shadow-2xs">
+        <Card className="border border-border/80 bg-card shadow-xs overflow-hidden rounded-xl">
           <CardContent className="p-0">
             {isLoading ? (
-              <LoadingState message="Loading staff directory..." />
+              <LoadingState message="Loading staff directory…" />
             ) : users.length === 0 ? (
               <EmptyState
                 icon={Users}

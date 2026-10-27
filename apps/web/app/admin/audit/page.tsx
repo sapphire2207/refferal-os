@@ -72,27 +72,29 @@ export default function AuditAdminPage() {
         {/* Filters Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <Input
-            placeholder="Filter by Action (e.g. REFERRAL_STAGE_CHANGE, PHI_ACCESS)..."
+            aria-label="Filter by Action"
+            placeholder="Filter by Action (e.g. REFERRAL_STAGE_CHANGE, PHI_ACCESS)…"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="h-8 max-w-xs text-xs bg-white border-border"
+            className="h-8 max-w-xs text-xs bg-background border-border/80"
           />
           <Input
-            placeholder="Filter by Entity Type (e.g. Referral, Patient, Document)..."
+            aria-label="Filter by Entity Type"
+            placeholder="Filter by Entity Type (e.g. Referral, Patient, Document)…"
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
-            className="h-8 max-w-xs text-xs bg-white border-border"
+            className="h-8 max-w-xs text-xs bg-background border-border/80"
           />
-          <span className="text-xs text-muted-foreground font-mono ml-auto">
-            {isLoading ? 'Querying ledger...' : `${logs.length} audit records retrieved`}
+          <span className="text-xs text-muted-foreground font-mono ml-auto tabular-nums">
+            {isLoading ? 'Querying ledger…' : `${logs.length} audit records retrieved`}
           </span>
         </div>
 
         {/* Audit Log Table */}
-        <Card className="border border-border/80 bg-card shadow-2xs">
+        <Card className="border border-border/80 bg-card shadow-xs overflow-hidden rounded-xl">
           <CardContent className="p-0">
             {isLoading ? (
-              <LoadingState message="Querying cryptographic audit ledger..." />
+              <LoadingState message="Querying cryptographic audit ledger…" />
             ) : logs.length === 0 ? (
               <EmptyState
                 icon={ScrollText}

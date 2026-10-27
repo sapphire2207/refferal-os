@@ -49,6 +49,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { UserRole } from '@heals/types';
+import { cn } from '@/lib/utils';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -155,17 +156,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/80 bg-sidebar" {...props}>
       {/* Header: Company Brand */}
-      <SidebarHeader className="border-b border-border/80 px-3 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black shadow-xs">
-            <span className="font-bold text-xs tracking-wider">H+W</span>
+      <SidebarHeader className="border-b border-border/80 px-3 py-3.5">
+        <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden group">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-700 text-white shadow-xs transition-transform duration-200 group-hover:scale-105">
+            <Activity className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="flex flex-col leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
-            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground truncate">
-              Heals on Wheels
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sm tracking-tight text-sidebar-foreground truncate">
+                Heals on Wheels
+              </span>
+            </div>
             <span className="text-[10px] text-muted-foreground font-mono truncate">
-              Referral Operating System
+              ReferralOS Enterprise
             </span>
           </div>
         </Link>
@@ -173,23 +176,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent className="px-2 py-3 space-y-4">
         {/* Quick Create Button */}
-        <div className="px-2">
+        <div className="px-1">
           <Link
             href="/referrals/new"
-            className="flex items-center justify-center gap-2 w-full h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:text-primary-foreground text-xs font-semibold shadow-xs transition-colors group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:mx-auto select-none"
-            title="Create New Referral"
+            className="flex items-center justify-between w-full h-9 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:text-primary-foreground text-xs font-semibold shadow-xs transition-all duration-150 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto select-none"
+            title="Create New Referral (N)"
           >
-            <PlusCircle className="h-4 w-4 shrink-0 text-primary-foreground" />
-            <span className="group-data-[collapsible=icon]:hidden text-primary-foreground">
-              New Referral
-            </span>
+            <div className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden="true" />
+              <span className="group-data-[collapsible=icon]:hidden text-primary-foreground">
+                New Referral
+              </span>
+            </div>
+            <kbd className="hidden lg:group-data-[collapsible=icon]:hidden inline-flex items-center rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[9px] font-mono text-primary-foreground">
+              N
+            </kbd>
           </Link>
         </div>
 
         {/* Primary Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2 group-data-[collapsible=icon]:hidden">
-            Overview
+          <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 px-2 group-data-[collapsible=icon]:hidden">
+            Operational Overview
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -199,9 +207,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     render={<Link href={item.url} />}
                     isActive={item.isActive}
                     tooltip={item.title}
-                    className="h-8 text-xs font-medium"
+                    className={cn(
+                      'h-8.5 text-xs font-medium rounded-lg transition-colors',
+                      item.isActive 
+                        ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary dark:bg-primary/15' 
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    )}
                   >
-                    <item.icon className="h-4 w-4 shrink-0" />
+                    <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -213,7 +226,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* Operational Queues */}
         {operationalQueues.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2 group-data-[collapsible=icon]:hidden">
+            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 px-2 group-data-[collapsible=icon]:hidden">
               Clinical Queues
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -224,9 +237,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       render={<Link href={item.url} />}
                       isActive={item.isActive}
                       tooltip={item.title}
-                      className="h-8 text-xs font-medium"
+                      className={cn(
+                        'h-8.5 text-xs font-medium rounded-lg transition-colors',
+                        item.isActive 
+                          ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary dark:bg-primary/15' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
