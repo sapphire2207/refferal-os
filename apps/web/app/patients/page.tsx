@@ -71,7 +71,7 @@ export default function PatientsPage() {
               <span>Refresh</span>
             </Button>
             <Link href="/referrals/new">
-              <Button size="sm" className="h-8 gap-1.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-xs">
+              <Button size="sm" className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs shadow-xs">
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span>New Patient & Referral</span>
               </Button>

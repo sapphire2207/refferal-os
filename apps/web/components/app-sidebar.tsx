@@ -16,7 +16,18 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  useSidebar,
 } from '@/components/ui/sidebar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   LayoutDashboard,
   Kanban,
@@ -28,24 +39,35 @@ import {
   ShieldCheck,
   ScrollText,
   PlusCircle,
-  FileText,
-  UserCheck,
-  Inbox,
   LogOut,
   ChevronRight,
+  Settings,
+  HelpCircle,
+  Search,
+  MoreVertical,
   Activity,
+  Layers,
 } from 'lucide-react';
 import { UserRole } from '@heals/types';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, availableWorkspaces, switchWorkspace } = useWorkspace();
+  const { isMobile } = useSidebar();
 
   const userRoles = user?.roles || [];
   const isAdmin = userRoles.includes(UserRole.ADMIN);
 
-  // Common core items visible across workspaces
+  const userName = user
+    ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Clinical Staff'
+    : 'Clinical Staff';
+  const userEmail = user?.email || 'staff@heals.health';
+  const initials = user
+    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'HW'
+    : 'HW';
+
+  // Core navigation items
   const mainNav = [
     {
       title: 'Dashboard',
@@ -67,7 +89,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ];
 
-  // Clinical & Operational queues based on role or active workspace
+  // Clinical & operational queues
   const operationalQueues = [
     {
       title: 'Appointment Schedule',
@@ -112,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ].filter((item) => item.show);
 
-  // Administration items
+  // Administrative tools
   const adminNav = [
     {
       title: 'User Management',
@@ -132,16 +154,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/80 bg-sidebar" {...props}>
-      <SidebarHeader className="border-b border-border/80 px-4 py-3">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black">
-            <span className="font-bold text-xs">H+W</span>
+      {/* Header: Company Brand */}
+      <SidebarHeader className="border-b border-border/80 px-3 py-3">
+        <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black text-white dark:bg-white dark:text-black shadow-xs">
+            <span className="font-bold text-xs tracking-wider">H+W</span>
           </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
+          <div className="flex flex-col leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
+            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground truncate">
               Heals on Wheels
             </span>
-            <span className="text-[10px] text-muted-foreground font-mono">
+            <span className="text-[10px] text-muted-foreground font-mono truncate">
               Referral Operating System
             </span>
           </div>
@@ -149,21 +172,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent className="px-2 py-3 space-y-4">
-        {/* Quick Action Button */}
+        {/* Quick Create Button */}
         <div className="px-2">
           <Link
             href="/referrals/new"
-            className="flex items-center justify-center gap-2 w-full h-8 px-3 rounded-md bg-black text-white hover:bg-neutral-800 text-xs font-medium dark:bg-white dark:text-black dark:hover:bg-neutral-200 transition-colors shadow-xs"
+            className="flex items-center justify-center gap-2 w-full h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:text-primary-foreground text-xs font-semibold shadow-xs transition-colors group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:mx-auto select-none"
+            title="Create New Referral"
           >
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span>New Referral</span>
+            <PlusCircle className="h-4 w-4 shrink-0 text-primary-foreground" />
+            <span className="group-data-[collapsible=icon]:hidden text-primary-foreground">
+              New Referral
+            </span>
           </Link>
         </div>
 
-        {/* Main Navigation */}
+        {/* Primary Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2">
-            Workspace Overview
+          <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2 group-data-[collapsible=icon]:hidden">
+            Overview
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -176,7 +202,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     className="h-8 text-xs font-medium"
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
-                    <span>{item.title}</span>
+                    <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -187,8 +213,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* Operational Queues */}
         {operationalQueues.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2">
-              Operational Queues
+            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2 group-data-[collapsible=icon]:hidden">
+              Clinical Queues
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -201,7 +227,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       className="h-8 text-xs font-medium"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.title}</span>
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -210,11 +236,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </SidebarGroup>
         )}
 
-        {/* Administration */}
+        {/* Administrative Tools */}
         {showAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2">
-              Compliance & Admin
+            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-2 group-data-[collapsible=icon]:hidden">
+              Administration
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -227,7 +253,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       className="h-8 text-xs font-medium"
                     >
                       <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.title}</span>
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -237,24 +263,95 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-border/80 p-3">
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-foreground truncate">
-              {user ? `${user.firstName} ${user.lastName}` : 'Staff'}
-            </span>
-            <span className="text-[10px] text-muted-foreground truncate font-mono">
-              {activeWorkspace?.badge || 'Intake'}
-            </span>
-          </div>
-          <button
-            onClick={() => logout()}
-            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
-        </div>
+      {/* Footer: User Profile Card (Matching img1) */}
+      <SidebarFooter className="border-t border-border/80 p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    tooltip={userName}
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground px-2 py-1.5"
+                  />
+                }
+              >
+                <Avatar className="h-8 w-8 rounded-lg shrink-0 border border-border/80 bg-muted">
+                  <AvatarFallback className="rounded-lg text-xs font-bold text-foreground">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-xs leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-semibold text-foreground">{userName}</span>
+                  <span className="truncate text-[11px] text-muted-foreground font-mono">
+                    {userEmail}
+                  </span>
+                </div>
+                <MoreVertical className="ml-auto h-4 w-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-60 rounded-lg p-1.5 shadow-md"
+                side={isMobile ? 'bottom' : 'right'}
+                align="end"
+                sideOffset={8}
+              >
+                <DropdownMenuLabel className="p-0 font-normal">
+                  <div className="flex items-center gap-2.5 px-2 py-2 text-left">
+                    <Avatar className="h-9 w-9 rounded-lg border border-border/80 bg-muted">
+                      <AvatarFallback className="rounded-lg text-xs font-bold">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left leading-tight">
+                      <span className="truncate text-xs font-semibold text-foreground">
+                        {userName}
+                      </span>
+                      <span className="truncate text-[10px] text-muted-foreground font-mono">
+                        {userEmail}
+                      </span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                {/* Workspace Switcher in Menu for Multi-Role */}
+                {availableWorkspaces.length > 1 && (
+                  <>
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1">
+                        Active Workspace
+                      </DropdownMenuLabel>
+                      {availableWorkspaces.map((ws) => (
+                        <DropdownMenuItem
+                          key={ws.id}
+                          onClick={() => switchWorkspace(ws.id)}
+                          className="text-xs cursor-pointer justify-between"
+                        >
+                          <span className={activeWorkspace?.id === ws.id ? 'font-semibold' : ''}>
+                            {ws.name}
+                          </span>
+                          {activeWorkspace?.id === ws.id && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          )}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                <DropdownMenuItem
+                  onClick={() => logout()}
+                  className="text-xs text-destructive cursor-pointer focus:bg-destructive/10 focus:text-destructive gap-2"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );

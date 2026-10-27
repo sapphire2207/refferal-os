@@ -232,7 +232,7 @@ export default function BillingPage() {
                       size="sm"
                       onClick={() => createClaimMutation.mutate()}
                       disabled={createClaimMutation.isPending}
-                      className="h-9 px-4 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black text-xs font-semibold gap-1.5"
+                      className="h-9 px-4 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
                     >
                       {createClaimMutation.isPending ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

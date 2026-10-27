@@ -199,7 +199,7 @@ export default function ReferralDetailPage() {
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
                 Current Pipeline Stage
               </span>
-              <Badge className="bg-black text-white dark:bg-white dark:text-black font-semibold text-xs mt-0.5">
+              <Badge className="bg-primary text-primary-foreground font-semibold text-xs mt-0.5 shadow-2xs">
                 {referral.pipelineStage.replace('_', ' ')}
               </Badge>
             </div>
@@ -278,7 +278,7 @@ export default function ReferralDetailPage() {
                       })
                     }
                     disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
                   >
                     <span>Advance to Clinical Review</span>
                     <ArrowRight className="h-3 w-3" />
@@ -295,7 +295,7 @@ export default function ReferralDetailPage() {
                       })
                     }
                     disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
                   >
                     <span>Accept & Move to Scheduling</span>
                     <ArrowRight className="h-3 w-3" />
@@ -312,7 +312,7 @@ export default function ReferralDetailPage() {
                       })
                     }
                     disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
                   >
                     <span>Confirm & Dispatch NP Visit</span>
                     <ArrowRight className="h-3 w-3" />
@@ -329,7 +329,7 @@ export default function ReferralDetailPage() {
                       })
                     }
                     disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
                   >
                     <span>Submit to Notes QA</span>
                     <ArrowRight className="h-3 w-3" />
@@ -346,7 +346,7 @@ export default function ReferralDetailPage() {
                       })
                     }
                     disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
                   >
                     <span>Approve & Move to Billing</span>
                     <ArrowRight className="h-3 w-3" />
@@ -519,7 +519,7 @@ export default function ReferralDetailPage() {
                     size="sm"
                     onClick={() => uploadDocMutation.mutate()}
                     disabled={!uploadFile || uploadDocMutation.isPending}
-                    className="h-8 text-xs px-3 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black gap-1.5 shrink-0"
+                    className="h-8 text-xs px-3 bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shrink-0 shadow-xs"
                   >
                     <Upload className="h-3 w-3" />
                     <span>Upload & Extract</span>

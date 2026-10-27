@@ -356,7 +356,7 @@ export default function NewReferralPage() {
               type="submit"
               size="sm"
               disabled={createReferralMutation.isPending}
-              className="h-9 px-5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-xs font-semibold gap-1.5"
+              className="h-9 px-5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
             >
               {createReferralMutation.isPending ? (
                 <>

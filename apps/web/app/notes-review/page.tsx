@@ -227,7 +227,7 @@ export default function NotesReviewPage() {
                         reviewMutation.mutate({ decision: NoteReviewDecision.APPROVE })
                       }
                       disabled={reviewMutation.isPending}
-                      className="h-9 px-5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black text-xs font-semibold gap-1.5"
+                      className="h-9 px-5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
                     >
                       {reviewMutation.isPending ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

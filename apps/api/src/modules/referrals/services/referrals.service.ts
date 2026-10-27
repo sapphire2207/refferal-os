@@ -238,6 +238,8 @@ export class ReferralsService {
               firstName: true,
               lastName: true,
               dateOfBirth: true,
+              medicalRecordNumber: true,
+              phone: true,
             },
           },
         },

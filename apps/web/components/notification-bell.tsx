@@ -65,7 +65,7 @@ export function NotificationBell() {
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[9px] font-bold text-white dark:bg-white dark:text-black">
+          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground shadow-2xs">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -115,7 +115,7 @@ export function NotificationBell() {
                 <div className="flex items-start justify-between gap-2">
                   <span className="font-semibold text-foreground">{n.title}</span>
                   {!n.isRead && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-black dark:bg-white shrink-0 mt-1" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1" />
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">

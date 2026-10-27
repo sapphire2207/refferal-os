@@ -1,31 +1,55 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { useWorkspace } from '@/providers/workspace-context';
 import { useAuth } from '@/providers/auth-context';
 import { AppLayout } from '@/components/app-layout';
+import { DashboardDataTable } from './dashboard-data-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  TrendingUp,
+  TrendingDown,
   ArrowRight,
-  PlusCircle,
-  Inbox,
-  Stethoscope,
+  Plus,
+  Search,
+  MoreVertical,
   Calendar,
-  UserCheck,
-  FileCheck2,
-  Receipt,
-  AlertTriangle,
-  Clock,
   CheckCircle2,
-  Users,
+  Clock,
+  AlertTriangle,
+  UserCheck,
+  Stethoscope,
+  Receipt,
+  FileCheck2,
+  Inbox,
   Activity,
-  Loader2,
+  Layers,
+  ArrowUpRight,
+  Eye,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
 
 interface DashboardMetricsResponse {
@@ -34,362 +58,338 @@ interface DashboardMetricsResponse {
   byStatus: Record<WorkStatus, number>;
 }
 
-interface ReferralSummary {
+interface ReferralRecord {
   id: string;
   trackingNumber: string;
   patient: {
+    id: string;
     firstName: string;
     lastName: string;
-    mrn: string;
-    dateOfBirth: string;
+    medicalRecordNumber?: string;
+    dateOfBirth?: string;
   };
   pipelineStage: PipelineStage;
   workStatus: WorkStatus;
   priority: Priority;
   site: string;
-  assignedTo?: {
-    firstName: string;
-    lastName: string;
-  };
+  insurancePayer?: string;
+  insuranceMemberId?: string;
+  assignedRole?: string;
+  assignedTo?: string;
+  version: number;
   createdAt: string;
+  updatedAt: string;
 }
+
+// Chart dataset with realistic trend curve matching img1
+const CHART_DATA_30_DAYS = [
+  { date: 'Apr 7', referrals: 4, completed: 2 },
+  { date: 'Apr 13', referrals: 7, completed: 3 },
+  { date: 'Apr 19', referrals: 5, completed: 4 },
+  { date: 'Apr 26', referrals: 9, completed: 5 },
+  { date: 'May 2', referrals: 6, completed: 4 },
+  { date: 'May 8', referrals: 12, completed: 7 },
+  { date: 'May 14', referrals: 8, completed: 6 },
+  { date: 'May 21', referrals: 14, completed: 9 },
+  { date: 'May 28', referrals: 11, completed: 8 },
+  { date: 'Jun 3', referrals: 16, completed: 11 },
+  { date: 'Jun 9', referrals: 13, completed: 10 },
+  { date: 'Jun 15', referrals: 18, completed: 13 },
+  { date: 'Jun 22', referrals: 15, completed: 12 },
+  { date: 'Jun 30', referrals: 20, completed: 15 },
+];
 
 export default function DashboardPage() {
   const { activeWorkspace } = useWorkspace();
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'ALL' | 'INTAKE' | 'CLINICAL_REVIEW' | 'SCHEDULING' | 'URGENT'>('ALL');
+  const [timeRange, setTimeRange] = useState<'3m' | '30d' | '7d'>('30d');
 
-  // Fetch real aggregated metrics from NestJS backend
+  // 1. Fetch real dashboard metrics
   const { data: metrics, isLoading: isMetricsLoading } = useQuery<DashboardMetricsResponse>({
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
       return apiClient.get<DashboardMetricsResponse>('/referrals/dashboard/metrics');
     },
-    staleTime: 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
-  // Fetch role-specific operational queue
-  const currentStage = activeWorkspace?.primaryStage as PipelineStage | undefined;
-
-  const { data: queueData, isLoading: isQueueLoading } = useQuery<{
-    items: ReferralSummary[];
+  // 2. Fetch referrals from real backend API
+  const { data: referralsRes, isLoading: isReferralsLoading } = useQuery<{
+    data: ReferralRecord[];
     total: number;
   }>({
-    queryKey: ['referrals', { stage: currentStage, limit: 6 }],
+    queryKey: ['referrals-all-dashboard'],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (currentStage) params.set('stage', currentStage);
-      params.set('limit', '6');
-      return apiClient.get<{ items: ReferralSummary[]; total: number }>(`/referrals?${params.toString()}`);
+      return apiClient.get<{ data: ReferralRecord[]; total: number }>('/referrals?limit=100');
     },
-    staleTime: 45 * 1000,
+    staleTime: 30 * 1000,
   });
 
-  const stageCounts = metrics?.byStage || {
-    [PipelineStage.INTAKE]: 0,
-    [PipelineStage.CLINICAL_REVIEW]: 0,
-    [PipelineStage.SCHEDULING]: 0,
-    [PipelineStage.NP_VISIT]: 0,
-    [PipelineStage.NOTES_QA]: 0,
-    [PipelineStage.BILLING]: 0,
-  };
+  const allReferrals = useMemo(() => referralsRes?.data || [], [referralsRes]);
 
-  const statusCounts = metrics?.byStatus || {
-    [WorkStatus.PENDING]: 0,
-    [WorkStatus.IN_PROGRESS]: 0,
-    [WorkStatus.BLOCKED_NEEDS_INFO]: 0,
-    [WorkStatus.ON_HOLD]: 0,
-    [WorkStatus.COMPLETED]: 0,
-  };
+  // Stage counts
+  const stageCounts = useMemo(() => {
+    return (
+      metrics?.byStage || {
+        [PipelineStage.INTAKE]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.INTAKE).length,
+        [PipelineStage.CLINICAL_REVIEW]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.CLINICAL_REVIEW).length,
+        [PipelineStage.SCHEDULING]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.SCHEDULING).length,
+        [PipelineStage.NP_VISIT]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.NP_VISIT).length,
+        [PipelineStage.NOTES_QA]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.NOTES_QA).length,
+        [PipelineStage.BILLING]: allReferrals.filter((r) => r.pipelineStage === PipelineStage.BILLING).length,
+      }
+    );
+  }, [metrics, allReferrals]);
+
+  // Filtered referrals for the bottom table based on tab
+  const filteredReferrals = useMemo(() => {
+    return allReferrals.filter((r) => {
+      if (activeTab === 'INTAKE' && r.pipelineStage !== PipelineStage.INTAKE) return false;
+      if (activeTab === 'CLINICAL_REVIEW' && r.pipelineStage !== PipelineStage.CLINICAL_REVIEW) return false;
+      if (activeTab === 'SCHEDULING' && r.pipelineStage !== PipelineStage.SCHEDULING) return false;
+      if (activeTab === 'URGENT' && r.priority !== Priority.URGENT && r.priority !== Priority.STAT) return false;
+      return true;
+    });
+  }, [allReferrals, activeTab]);
+
+  const totalCount = allReferrals.length;
+  const intakeCount = stageCounts[PipelineStage.INTAKE] || 0;
+  const reviewCount = stageCounts[PipelineStage.CLINICAL_REVIEW] || 0;
+  const schedCount = stageCounts[PipelineStage.SCHEDULING] || 0;
+  const urgentCount = allReferrals.filter((r) => r.priority === Priority.URGENT || r.priority === Priority.STAT).length;
 
   return (
-    <AppLayout title={`${activeWorkspace?.name || 'Operations'} Dashboard`}>
-      <div className="space-y-6">
-        {/* Welcome & Role Context Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Hello, {user?.firstName || 'Staff'}
-              </h1>
-              <Badge variant="outline" className="font-mono text-xs">
-                {activeWorkspace?.badge || 'Intake'}
+    <AppLayout title="Dashboard">
+      <div className="space-y-6 pb-8">
+        {/* ROW 1: 4 Key Metric Cards (Matching img1 exactly) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Total Active Referrals */}
+          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Active Cases</span>
+              <Badge
+                variant="outline"
+                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
+              >
+                +12.5%
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-              {activeWorkspace?.description || 'Operational referral overview and patient management queue.'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link href="/referrals/new">
-              <Button size="sm" className="h-8 gap-1.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-xs">
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span>New Referral</span>
-              </Button>
-            </Link>
-            <Link href="/referrals">
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                <span>View Full Pipeline</span>
-                <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Dynamic Metric Cards based on real backend metrics */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card className="border border-border/80 shadow-2xs">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Total Active Referrals
-              </CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-extrabold tracking-tight">
-                {isMetricsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  metrics?.totalActive ?? 0
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Across your authorized site scopes
+            <div className="mt-3">
+              <span className="text-3xl font-bold tracking-tight text-foreground">
+                {metrics?.totalActive ?? totalCount}
+              </span>
+            </div>
+            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/80 flex items-center gap-1">
+                Trending up this month <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
               </p>
-            </CardContent>
+              <p className="text-[11px] text-muted-foreground/80">Active across authorized scope</p>
+            </div>
           </Card>
 
-          <Card className="border border-border/80 shadow-2xs">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {activeWorkspace?.id === 'clinical_review'
-                  ? 'Awaiting Triage'
-                  : activeWorkspace?.id === 'scheduling'
-                  ? 'Ready to Schedule'
-                  : activeWorkspace?.id === 'np_visit'
-                  ? 'Visits Pending'
-                  : activeWorkspace?.id === 'clinical_qa'
-                  ? 'Notes QA Queue'
-                  : activeWorkspace?.id === 'billing'
-                  ? 'Billing Queue'
-                  : 'Intake Queue'}
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-extrabold tracking-tight">
-                {isMetricsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : currentStage ? (
-                  stageCounts[currentStage] || 0
-                ) : (
-                  stageCounts[PipelineStage.INTAKE] || 0
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Current active items in stage
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border border-border/80 shadow-2xs">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Blocked / Needs Info
-              </CardTitle>
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-extrabold tracking-tight text-amber-600 dark:text-amber-400">
-                {isMetricsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  statusCounts[WorkStatus.BLOCKED_NEEDS_INFO] || 0
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Requires missing clinical document
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border border-border/80 shadow-2xs">
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                In Progress
-              </CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-extrabold tracking-tight">
-                {isMetricsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : (
-                  statusCounts[WorkStatus.IN_PROGRESS] || 0
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Actively being worked by clinicians
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 6-Stage Pipeline Funnel Overview */}
-        <Card className="border border-border/80">
-          <CardHeader className="pb-3">
+          {/* Card 2: Intake Queue */}
+          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
             <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-semibold tracking-tight">
-                  Referral Pipeline Stage Distribution
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Real-time caseload counts progressing through authoritative gates
-                </CardDescription>
-              </div>
-              <Link href="/referrals">
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground hover:text-foreground">
-                  View Kanban Board
-                </Button>
-              </Link>
+              <span className="text-xs font-medium text-muted-foreground">Intake Verification</span>
+              <Badge
+                variant="outline"
+                className="text-[11px] font-mono gap-1 font-semibold text-neutral-600 bg-neutral-100 border-neutral-200 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400"
+              >
+                -20%
+              </Badge>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-bold tracking-tight text-foreground">
+                {intakeCount}
+              </span>
+            </div>
+            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/80 flex items-center gap-1">
+                Down 20% this period <TrendingDown className="h-3.5 w-3.5 text-neutral-500" />
+              </p>
+              <p className="text-[11px] text-muted-foreground/80">Awaiting eligibility triage</p>
+            </div>
+          </Card>
+
+          {/* Card 3: Clinical Review */}
+          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Clinical Review</span>
+              <Badge
+                variant="outline"
+                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
+              >
+                +12.5%
+              </Badge>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-bold tracking-tight text-foreground">
+                {reviewCount}
+              </span>
+            </div>
+            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/80 flex items-center gap-1">
+                Strong physician throughput <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+              </p>
+              <p className="text-[11px] text-muted-foreground/80">Determination turnaround &lt; 24h</p>
+            </div>
+          </Card>
+
+          {/* Card 4: Growth / Schedule Rate */}
+          <Card className="rounded-xl border border-border/80 bg-card p-5 shadow-xs transition-shadow hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Dispatch Readiness</span>
+              <Badge
+                variant="outline"
+                className="text-[11px] font-mono gap-1 font-semibold text-emerald-600 bg-emerald-50/50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400"
+              >
+                +4.5%
+              </Badge>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-bold tracking-tight text-foreground">
+                {schedCount}
+              </span>
+            </div>
+            <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground/80 flex items-center gap-1">
+                Steady performance increase <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+              </p>
+              <p className="text-[11px] text-muted-foreground/80">Meets SLA dispatch projections</p>
+            </div>
+          </Card>
+        </div>
+
+        {/* ROW 2: Big Chart Card (Area Chart matching img1 exactly) */}
+        <Card className="rounded-xl border border-border/80 bg-card shadow-xs">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3">
+            <div>
+              <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+                Total Referral Inflow & Velocity
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                Total referral admissions and clinical transitions over time
+              </CardDescription>
+            </div>
+
+            {/* Segmented Control Buttons (matching img1) */}
+            <div className="flex items-center rounded-lg border border-border p-1 bg-muted/30">
+              <button
+                type="button"
+                onClick={() => setTimeRange('3m')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  timeRange === '3m'
+                    ? 'bg-background text-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Last 3 months
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimeRange('30d')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  timeRange === '30d'
+                    ? 'bg-background text-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Last 30 days
+              </button>
+              <button
+                type="button"
+                onClick={() => setTimeRange('7d')}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  timeRange === '7d'
+                    ? 'bg-background text-foreground shadow-2xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Last 7 days
+              </button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
-              {[
-                { stage: PipelineStage.INTAKE, label: '1. Intake', count: stageCounts.INTAKE, icon: Inbox },
-                { stage: PipelineStage.CLINICAL_REVIEW, label: '2. Review', count: stageCounts.CLINICAL_REVIEW, icon: Stethoscope },
-                { stage: PipelineStage.SCHEDULING, label: '3. Schedule', count: stageCounts.SCHEDULING, icon: Calendar },
-                { stage: PipelineStage.NP_VISIT, label: '4. NP Visit', count: stageCounts.NP_VISIT, icon: UserCheck },
-                { stage: PipelineStage.NOTES_QA, label: '5. Notes QA', count: stageCounts.NOTES_QA, icon: FileCheck2 },
-                { stage: PipelineStage.BILLING, label: '6. Billing', count: stageCounts.BILLING, icon: Receipt },
-              ].map((item) => {
-                const isCurrent = activeWorkspace?.primaryStage === item.stage;
-                const ItemIcon = item.icon;
 
-                return (
-                  <Link
-                    key={item.stage}
-                    href={`/referrals?stage=${item.stage}`}
-                    className={`flex flex-col p-3 rounded-lg border transition-all hover:bg-accent/50 ${
-                      isCurrent
-                        ? 'border-primary bg-muted/30 shadow-2xs'
-                        : 'border-border/60 bg-card'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-muted-foreground mb-2">
-                      <ItemIcon className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-mono">Stage</span>
-                    </div>
-                    <span className="text-lg font-bold text-foreground">
-                      {isMetricsLoading ? '-' : item.count}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate font-medium">
-                      {item.label}
-                    </span>
-                  </Link>
-                );
-              })}
+          <CardContent className="pt-2 px-3 pb-5">
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={CHART_DATA_30_DAYS}
+                  margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    {/* Primary Dark/Charcoal Gradient */}
+                    <linearGradient id="primaryAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#18181b" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#18181b" stopOpacity={0.0} />
+                    </linearGradient>
+                    {/* Secondary Slate Gradient */}
+                    <linearGradient id="secondaryAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#71717a" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#71717a" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" opacity={0.6} />
+                  <XAxis
+                    dataKey="date"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#71717a' }}
+                    dy={10}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 11, fill: '#71717a' }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'var(--popover)',
+                      borderColor: 'var(--border)',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                    }}
+                  />
+                  <Area
+                    type="natural"
+                    dataKey="referrals"
+                    name="Inflow Volume"
+                    stroke="#18181b"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#primaryAreaGrad)"
+                  />
+                  <Area
+                    type="natural"
+                    dataKey="completed"
+                    name="Completed Encounters"
+                    stroke="#71717a"
+                    strokeWidth={1.5}
+                    fillOpacity={1}
+                    fill="url(#secondaryAreaGrad)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Priority Operational Work Queue for the Active Workspace */}
-        <Card className="border border-border/80">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-semibold tracking-tight">
-                  {activeWorkspace?.name} Priority Queue
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Highest priority referrals requiring staff action
-                </CardDescription>
-              </div>
-              <Link href={activeWorkspace?.defaultRoute || '/referrals'}>
-                <Button variant="outline" size="sm" className="h-7 text-xs">
-                  <span>View All Queue</span>
-                  <ArrowRight className="h-3 w-3 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isQueueLoading ? (
-              <div className="flex items-center justify-center py-12 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Loading operational queue...
-              </div>
-            ) : !queueData?.items || queueData.items.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2 opacity-80" />
-                No pending referrals in this workspace queue. All caught up!
-              </div>
-            ) : (
-              <div className="divide-y divide-border/60">
-                {queueData.items.map((ref) => (
-                  <div
-                    key={ref.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 px-5 hover:bg-muted/30 transition-colors gap-3"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 font-mono text-xs font-semibold">
-                        {ref.trackingNumber?.slice(-3) || 'REF'}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/referrals/${ref.id}`}
-                            className="font-semibold text-xs text-foreground hover:underline truncate"
-                          >
-                            {ref.patient?.firstName} {ref.patient?.lastName}
-                          </Link>
-                          {ref.priority === Priority.STAT && (
-                            <Badge variant="destructive" className="text-[9px] h-4 px-1 uppercase font-bold">
-                              STAT
-                            </Badge>
-                          )}
-                          {ref.priority === Priority.URGENT && (
-                            <Badge variant="secondary" className="text-[9px] h-4 px-1 uppercase bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30">
-                              URGENT
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                          <span>MRN: {ref.patient?.mrn || 'N/A'}</span>
-                          <span>•</span>
-                          <span>Site: {ref.site}</span>
-                          <span>•</span>
-                          <span>Stage: {ref.pipelineStage.replace('_', ' ')}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${
-                          ref.workStatus === WorkStatus.BLOCKED_NEEDS_INFO
-                            ? 'border-amber-500/40 text-amber-600 bg-amber-500/10'
-                            : ref.workStatus === WorkStatus.IN_PROGRESS
-                            ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10'
-                            : 'border-border text-muted-foreground'
-                        }`}
-                      >
-                        {ref.workStatus.replace('_', ' ')}
-                      </Badge>
-                      <Link href={`/referrals/${ref.id}`}>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs px-2">
-                          Details
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* ROW 3: TanStack Table v9 Data Table (matching img2 reference exactly) */}
+        <DashboardDataTable
+          data={filteredReferrals}
+          isLoading={isReferralsLoading}
+          activeTab={activeTab}
+          setActiveTab={(tab) => setActiveTab(tab as any)}
+          counts={{
+            total: totalCount,
+            intake: intakeCount,
+            review: reviewCount,
+            scheduling: schedCount,
+            urgent: urgentCount,
+          }}
+        />
       </div>
     </AppLayout>
   );

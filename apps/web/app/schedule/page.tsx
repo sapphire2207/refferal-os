@@ -93,7 +93,7 @@ export default function SchedulePage() {
           <Button
             size="sm"
             onClick={() => setIsBookingOpen(!isBookingOpen)}
-            className="h-8 gap-1.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black text-xs font-semibold"
+            className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
           >
             <PlusCircle className="h-3.5 w-3.5" />
             <span>Book Mobile Visit</span>
@@ -179,7 +179,7 @@ export default function SchedulePage() {
                   size="sm"
                   onClick={() => bookMutation.mutate()}
                   disabled={!selectedReferralId || !appointmentDate || bookMutation.isPending}
-                  className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black"
+                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-medium"
                 >
                   Confirm Appointment Booking
                 </Button>
@@ -300,7 +300,7 @@ export default function SchedulePage() {
                           <Button
                             size="sm"
                             onClick={() => updateStatusMutation.mutate({ id: apt.id, status: 'CONFIRMED' })}
-                            className="h-7 text-[10px] bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black"
+                            className="h-7 text-[10px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-medium"
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Confirm (NP Visit)

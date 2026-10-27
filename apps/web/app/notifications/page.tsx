@@ -69,7 +69,7 @@ export default function NotificationsPage() {
               size="sm"
               onClick={() => markAllReadMutation.mutate()}
               disabled={notifications.every((n) => n.isRead) || markAllReadMutation.isPending}
-              className="h-8 gap-1.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black text-xs"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs shadow-xs font-medium"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               <span>Mark All Read</span>
@@ -127,7 +127,7 @@ export default function NotificationsPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-foreground text-xs">{n.title}</span>
                           {!n.isRead && (
-                            <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-black text-white dark:bg-white dark:text-black">
+                            <Badge variant="default" className="text-[9px] h-4 px-1.5 bg-primary text-primary-foreground">
                               NEW
                             </Badge>
                           )}

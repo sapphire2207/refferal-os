@@ -108,7 +108,7 @@ export default function UsersAdminPage() {
             <Button
               size="sm"
               onClick={() => setIsInviteOpen(!isInviteOpen)}
-              className="h-8 gap-1.5 bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black text-xs font-semibold"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
             >
               <UserPlus className="h-3.5 w-3.5" />
               <span>Invite New Staff</span>
@@ -220,7 +220,7 @@ export default function UsersAdminPage() {
                   size="sm"
                   onClick={() => inviteMutation.mutate()}
                   disabled={!email || !firstName || !lastName || inviteMutation.isPending}
-                  className="h-8 text-xs bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black"
+                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-medium"
                 >
                   {inviteMutation.isPending ? 'Sending...' : 'Send Invitation'}
                 </Button>
