@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { useWorkspace } from '@/providers/workspace-context';
 import { useAuth } from '@/providers/auth-context';
 import { AppLayout } from '@/components/app-layout';
@@ -126,7 +126,7 @@ export default function DashboardPage() {
     staleTime: 30 * 1000,
   });
 
-  const allReferrals = useMemo(() => referralsRes?.data || [], [referralsRes]);
+  const allReferrals = useMemo(() => extractApiList<ReferralRecord>(referralsRes), [referralsRes]);
 
   // Stage counts
   const stageCounts = useMemo(() => {

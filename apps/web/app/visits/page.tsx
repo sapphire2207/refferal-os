@@ -3,14 +3,16 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
+import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Stethoscope, FileText, CheckCircle, ArrowRight, Loader2, ShieldCheck, PenTool } from 'lucide-react';
+import { EmptyState, LoadingState } from '@/components/ui/state-views';
+import { Stethoscope, CheckCircle, Loader2, ShieldCheck, PenTool, RefreshCw } from 'lucide-react';
 import { PipelineStage } from '@heals/types';
 import { toast } from 'sonner';
 
@@ -28,12 +30,12 @@ export default function VisitsPage() {
   const [signature, setSignature] = useState('Nurse Practitioner, MSN, APRN, FNP-C');
 
   // Fetch referrals in NP_VISIT stage
-  const { data: visitsData, isLoading } = useQuery<any>({
+  const { data: visitsData, isLoading, refetch, isFetching } = useQuery<any>({
     queryKey: ['referrals', { stage: PipelineStage.NP_VISIT }],
     queryFn: () => apiClient.get<any>(`/referrals?stage=${PipelineStage.NP_VISIT}&limit=50`),
   });
 
-  const visitQueue = visitsData?.items || [];
+  const visitQueue = extractApiList<any>(visitsData);
 
   // Create Encounter & Submit Note Mutation
   const submitEncounterMutation = useMutation({
@@ -50,7 +52,7 @@ export default function VisitsPage() {
       });
 
       // 2. Create Clinical Note (SOAP)
-      const note = await apiClient.post<any>(`/encounters/${encounter.id}/notes`, {
+      await apiClient.post<any>(`/encounters/${encounter.id}/notes`, {
         subjective,
         objective,
         assessment,
@@ -82,38 +84,50 @@ export default function VisitsPage() {
   return (
     <AppLayout title="Mobile NP Visits & Encounters">
       <div className="space-y-6">
-        <div className="border-b border-border/60 pb-4">
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Nurse Practitioner Mobile Clinical Documentation
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Conduct home visits, document SOAP notes, and execute immutable digital signatures
-          </p>
-        </div>
+        <PageHeader>
+          <div>
+            <PageHeaderHeading>Nurse Practitioner Clinical Encounters</PageHeaderHeading>
+            <PageHeaderDescription>
+              Document in-home patient evaluations, SOAP notes, and cryptographic provider sign-offs
+            </PageHeaderDescription>
+          </div>
+          <PageHeaderActions>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="h-8 gap-1.5 text-xs font-medium border-border"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </Button>
+          </PageHeaderActions>
+        </PageHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Active NP Visit Queue */}
-          <Card className="border border-border/80 lg:col-span-1">
-            <CardHeader className="pb-3">
+          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-1">
+            <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">
                   Pending Visits ({visitQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
                   NP_VISIT
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
-                  Loading visit queue...
-                </div>
+                <LoadingState message="Loading mobile clinical visit queue..." />
               ) : visitQueue.length === 0 ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">
-                  No mobile visits pending in your scope.
-                </div>
+                <EmptyState
+                  icon={Stethoscope}
+                  title="No visits pending"
+                  description="All scheduled patient visits in your scope are up to date."
+                  className="min-h-[220px] border-none bg-transparent"
+                />
               ) : (
                 <div className="divide-y divide-border/60 max-h-[600px] overflow-y-auto">
                   {visitQueue.map((ref: any) => {
@@ -124,7 +138,7 @@ export default function VisitsPage() {
                         key={ref.id}
                         onClick={() => setSelectedReferral(ref)}
                         className={`p-3.5 text-xs cursor-pointer transition-colors ${
-                          isSelected ? 'bg-primary/5 border-l-2 border-primary' : 'hover:bg-muted/30'
+                          isSelected ? 'bg-zinc-100/70 border-l-2 border-zinc-900' : 'hover:bg-muted/30'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -136,14 +150,16 @@ export default function VisitsPage() {
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-1">
-                          <span>DOB: {ref.patient?.dateOfBirth}</span>
+                          <span>DOB: {ref.patient?.dateOfBirth || 'N/A'}</span>
                           <span> • </span>
                           <span>Site: {ref.site}</span>
                         </div>
                         <Button
                           variant={isSelected ? 'default' : 'outline'}
                           size="sm"
-                          className="h-6 text-[10px] w-full mt-2"
+                          className={`h-6 text-[10px] w-full mt-2 font-medium ${
+                            isSelected ? 'bg-zinc-900 text-white' : 'border-border'
+                          }`}
                         >
                           {isSelected ? 'Currently Documenting' : 'Document Visit'}
                         </Button>
@@ -156,10 +172,10 @@ export default function VisitsPage() {
           </Card>
 
           {/* SOAP Clinical Note Documentation Workspace */}
-          <Card className="border border-border/80 lg:col-span-2">
-            <CardHeader className="pb-3">
+          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-2">
+            <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <PenTool className="h-4 w-4" />
+                <PenTool className="h-4 w-4 text-zinc-600" />
                 SOAP Clinical Encounter Note
               </CardTitle>
               <CardDescription className="text-xs">
@@ -168,86 +184,88 @@ export default function VisitsPage() {
                   : 'Select a patient visit from the left queue to begin documenting.'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-4">
               {!selectedReferral ? (
-                <div className="py-16 text-center text-xs text-muted-foreground">
-                  <Stethoscope className="h-8 w-8 text-muted-foreground/60 mx-auto mb-2" />
-                  Select an active referral from the pending visits queue to record clinical findings.
-                </div>
+                <EmptyState
+                  icon={Stethoscope}
+                  title="No encounter selected"
+                  description="Choose a patient referral from the left queue to author and sign the clinical encounter note."
+                  className="min-h-[300px] border-none bg-transparent"
+                />
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="dos" className="text-xs">Date of Service *</Label>
+                      <Label htmlFor="dos" className="text-xs font-medium text-zinc-700">Date of Service *</Label>
                       <Input
                         id="dos"
                         type="date"
                         value={dateOfService}
                         onChange={(e) => setDateOfService(e.target.value)}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs bg-white border-border"
                         required
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="services" className="text-xs">Services Provided</Label>
+                      <Label htmlFor="services" className="text-xs font-medium text-zinc-700">Services Provided</Label>
                       <Input
                         id="services"
                         value={servicesProvided}
                         onChange={(e) => setServicesProvided(e.target.value)}
-                        className="h-8 text-xs"
+                        className="h-8 text-xs bg-white border-border"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="subj" className="text-xs font-semibold">Subjective (S)</Label>
+                    <Label htmlFor="subj" className="text-xs font-semibold text-zinc-800">Subjective (S)</Label>
                     <textarea
                       id="subj"
                       rows={2}
                       value={subjective}
                       onChange={(e) => setSubjective(e.target.value)}
                       placeholder="Chief complaint, patient history, reported symptoms..."
-                      className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="obj" className="text-xs font-semibold">Objective (O)</Label>
+                    <Label htmlFor="obj" className="text-xs font-semibold text-zinc-800">Objective (O)</Label>
                     <textarea
                       id="obj"
                       rows={2}
                       value={objective}
                       onChange={(e) => setObjective(e.target.value)}
                       placeholder="Vital signs, physical exam observations, mobility status..."
-                      className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="assess" className="text-xs font-semibold">Assessment (A)</Label>
+                    <Label htmlFor="assess" className="text-xs font-semibold text-zinc-800">Assessment (A)</Label>
                     <textarea
                       id="assess"
                       rows={2}
                       value={assessment}
                       onChange={(e) => setAssessment(e.target.value)}
                       placeholder="Primary clinical diagnoses, clinical impression..."
-                      className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="plan" className="text-xs font-semibold">Plan (P)</Label>
+                    <Label htmlFor="plan" className="text-xs font-semibold text-zinc-800">Plan (P)</Label>
                     <textarea
                       id="plan"
                       rows={2}
                       value={plan}
                       onChange={(e) => setPlan(e.target.value)}
                       placeholder="Treatment orders, prescriptions, caregiver education, follow-up cadence..."
-                      className="w-full rounded-md border border-border bg-background p-2.5 text-xs text-foreground focus:outline-none"
+                      className="w-full rounded-md border border-border bg-white p-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
                     />
                   </div>
 
-                  <div className="p-3 bg-muted/30 rounded-md border border-border/60 space-y-2">
+                  <div className="p-3.5 bg-zinc-50 rounded-lg border border-border/80 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <ShieldCheck className="h-4 w-4 text-emerald-600" />
                       Digital Signature & Attestation
@@ -255,9 +273,9 @@ export default function VisitsPage() {
                     <Input
                       value={signature}
                       onChange={(e) => setSignature(e.target.value)}
-                      className="h-8 text-xs font-mono"
+                      className="h-8 text-xs font-mono bg-white border-border"
                     />
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       Signing locks note revision immutably and immediately routes case to Notes QA Review.
                     </p>
                   </div>
@@ -267,7 +285,7 @@ export default function VisitsPage() {
                       size="sm"
                       onClick={() => submitEncounterMutation.mutate()}
                       disabled={!subjective || !objective || !assessment || !plan || submitEncounterMutation.isPending}
-                      className="h-9 px-4 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
+                      className="h-8 px-4 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 shadow-2xs"
                     >
                       {submitEncounterMutation.isPending ? (
                         <>

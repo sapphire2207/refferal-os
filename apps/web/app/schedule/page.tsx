@@ -3,14 +3,16 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
+import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Calendar, Clock, PlusCircle, CheckCircle, AlertTriangle, ArrowRight, Loader2, User } from 'lucide-react';
+import { EmptyState, LoadingState } from '@/components/ui/state-views';
+import { Calendar, Clock, PlusCircle, CheckCircle, AlertTriangle, ArrowRight, RefreshCw, MapPin } from 'lucide-react';
 import { PipelineStage } from '@heals/types';
 import { toast } from 'sonner';
 
@@ -23,18 +25,19 @@ export default function SchedulePage() {
   const [notes, setNotes] = useState('');
 
   // Fetch referrals ready for scheduling
-  const { data: referralsData } = useQuery<any>({
+  const { data: referralsData, isFetching: isFetchingReferrals } = useQuery<any>({
     queryKey: ['referrals', { stage: PipelineStage.SCHEDULING }],
     queryFn: () => apiClient.get<any>(`/referrals?stage=${PipelineStage.SCHEDULING}&limit=50`),
   });
 
   // Fetch existing appointments
-  const { data: appointments = [], isLoading, refetch } = useQuery<any[]>({
+  const { data: appointmentsRes, isLoading, refetch, isFetching: isFetchingAppts } = useQuery<any>({
     queryKey: ['appointments'],
-    queryFn: () => apiClient.get<any[]>('/appointments'),
+    queryFn: () => apiClient.get<any>('/appointments'),
   });
 
-  const schedulingQueue = referralsData?.items || [];
+  const schedulingQueue = extractApiList<any>(referralsData);
+  const appointments = extractApiList<any>(appointmentsRes);
 
   // Book Appointment Mutation
   const bookMutation = useMutation({
@@ -68,7 +71,7 @@ export default function SchedulePage() {
     mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) =>
       apiClient.patch(`/appointments/${id}/status`, { status, notes }),
     onSuccess: (data, variables) => {
-      toast.success(`Appointment status: ${variables.status}`);
+      toast.success(`Appointment status updated to ${variables.status}`);
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
     },
@@ -80,46 +83,58 @@ export default function SchedulePage() {
   return (
     <AppLayout title="Appointment Scheduling">
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <PageHeader>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Provider Dispatch & Appointment Scheduling
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <PageHeaderHeading>Provider Dispatch & Scheduling</PageHeaderHeading>
+            <PageHeaderDescription>
               Mobile NP visit coordination, territory dispatch, and confirmation gates
-            </p>
+            </PageHeaderDescription>
           </div>
-
-          <Button
-            size="sm"
-            onClick={() => setIsBookingOpen(!isBookingOpen)}
-            className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
-          >
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span>Book Mobile Visit</span>
-          </Button>
-        </div>
+          <PageHeaderActions>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                refetch();
+                queryClient.invalidateQueries({ queryKey: ['referrals'] });
+              }}
+              disabled={isFetchingAppts || isFetchingReferrals}
+              className="h-8 gap-1.5 text-xs font-medium border-border"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetchingAppts ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsBookingOpen(!isBookingOpen)}
+              className="h-8 gap-1.5 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium shadow-2xs"
+            >
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span>{isBookingOpen ? 'Close Dispatch Form' : 'Book Mobile Visit'}</span>
+            </Button>
+          </PageHeaderActions>
+        </PageHeader>
 
         {/* Booking Form Drawer / Card */}
         {isBookingOpen && (
-          <Card className="border border-border/80 bg-muted/20">
-            <CardHeader className="pb-3">
+          <Card className="border border-border/80 bg-zinc-50/50 shadow-xs animate-in fade-in-50">
+            <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold">Schedule Mobile Nurse Practitioner Visit</CardTitle>
               <CardDescription className="text-xs">
                 Matches patient with available clinician in authorized site territory
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="referral" className="text-xs">
+                  <Label htmlFor="referral" className="text-xs font-medium text-zinc-700">
                     Select Referral in SCHEDULING Stage *
                   </Label>
                   <select
                     id="referral"
                     value={selectedReferralId}
                     onChange={(e) => setSelectedReferralId(e.target.value)}
-                    className="w-full h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none"
+                    className="w-full h-8 rounded-md border border-border bg-white px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-zinc-400"
                   >
                     <option value="">-- Choose referral --</option>
                     {schedulingQueue.map((r: any) => (
@@ -131,7 +146,7 @@ export default function SchedulePage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="aptDate" className="text-xs">
+                  <Label htmlFor="aptDate" className="text-xs font-medium text-zinc-700">
                     Date & Time *
                   </Label>
                   <Input
@@ -139,7 +154,7 @@ export default function SchedulePage() {
                     type="datetime-local"
                     value={appointmentDate}
                     onChange={(e) => setAppointmentDate(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs bg-white border-border"
                     required
                   />
                 </div>
@@ -147,18 +162,18 @@ export default function SchedulePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="loc" className="text-xs">
+                  <Label htmlFor="loc" className="text-xs font-medium text-zinc-700">
                     Visit Location
                   </Label>
                   <Input
                     id="loc"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="h-8 text-xs"
+                    className="h-8 text-xs bg-white border-border"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="notes" className="text-xs">
+                  <Label htmlFor="notes" className="text-xs font-medium text-zinc-700">
                     Scheduling Notes / Instructions
                   </Label>
                   <Input
@@ -166,20 +181,20 @@ export default function SchedulePage() {
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="e.g. Ring buzzer 4B, caregiver present"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs bg-white border-border"
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setIsBookingOpen(false)} className="h-8 text-xs">
+                <Button variant="outline" size="sm" onClick={() => setIsBookingOpen(false)} className="h-8 text-xs border-border">
                   Cancel
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => bookMutation.mutate()}
                   disabled={!selectedReferralId || !appointmentDate || bookMutation.isPending}
-                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-medium"
+                  className="h-8 text-xs bg-zinc-900 text-white hover:bg-zinc-800 shadow-2xs font-medium"
                 >
                   Confirm Appointment Booking
                 </Button>
@@ -191,26 +206,29 @@ export default function SchedulePage() {
         {/* Two-Column Grid: Left: Pending Queue, Right: Scheduled Appointments */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Scheduling Queue */}
-          <Card className="border border-border/80 lg:col-span-1">
-            <CardHeader className="pb-3">
+          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-1">
+            <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">
                   Awaiting Dispatch ({schedulingQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-[10px] font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
                   SCHEDULING Stage
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {schedulingQueue.length === 0 ? (
-                <div className="py-8 text-center text-xs text-muted-foreground">
-                  No referrals currently waiting for scheduling.
-                </div>
+                <EmptyState
+                  icon={Clock}
+                  title="No referrals to dispatch"
+                  description="No clinical cases currently waiting for visit dispatch."
+                  className="min-h-[220px] border-none bg-transparent"
+                />
               ) : (
                 <div className="divide-y divide-border/60 max-h-[500px] overflow-y-auto">
                   {schedulingQueue.map((ref: any) => (
-                    <div key={ref.id} className="p-3 text-xs hover:bg-muted/30 transition-colors">
+                    <div key={ref.id} className="p-3.5 text-xs hover:bg-muted/30 transition-colors">
                       <div className="flex items-center justify-between">
                         <Link
                           href={`/referrals/${ref.id}`}
@@ -222,8 +240,11 @@ export default function SchedulePage() {
                           {ref.trackingNumber}
                         </span>
                       </div>
-                      <div className="text-[11px] text-muted-foreground mt-1 flex items-center justify-between">
-                        <span>Site: {ref.site}</span>
+                      <div className="text-[11px] text-muted-foreground mt-2 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-zinc-400" />
+                          {ref.site}
+                        </span>
                         <Button
                           variant="outline"
                           size="sm"
@@ -231,7 +252,7 @@ export default function SchedulePage() {
                             setSelectedReferralId(ref.id);
                             setIsBookingOpen(true);
                           }}
-                          className="h-6 text-[10px] px-2"
+                          className="h-6 text-[10px] px-2 border-border font-medium hover:bg-zinc-100"
                         >
                           Book Visit
                         </Button>
@@ -244,32 +265,39 @@ export default function SchedulePage() {
           </Card>
 
           {/* Booked Appointments List */}
-          <Card className="border border-border/80 lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">
-                Scheduled Mobile Appointments
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Confirming an appointment advances the referral to NP_VISIT
-              </CardDescription>
+          <Card className="border border-border/80 bg-card shadow-2xs lg:col-span-2">
+            <CardHeader className="pb-3 border-b border-border/40">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-semibold">
+                    Scheduled Mobile Appointments
+                  </CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
+                    Confirming an appointment advances the referral to NP_VISIT
+                  </CardDescription>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {appointments.length} scheduled
+                </span>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
-                  Loading appointments...
-                </div>
+                <LoadingState message="Loading scheduled encounters..." />
               ) : appointments.length === 0 ? (
-                <div className="py-12 text-center text-xs text-muted-foreground">
-                  No appointments scheduled. Select a referral from the left queue to book.
-                </div>
+                <EmptyState
+                  icon={Calendar}
+                  title="No scheduled appointments"
+                  description="Select a referral from the left dispatch queue to book a mobile encounter."
+                  className="min-h-[220px] border-none bg-transparent"
+                />
               ) : (
                 <div className="divide-y divide-border/60">
                   {appointments.map((apt: any) => (
                     <div key={apt.id} className="p-4 hover:bg-muted/30 transition-colors flex items-center justify-between text-xs gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          <Calendar className="h-3.5 w-3.5 text-zinc-500" />
                           <span className="font-semibold text-foreground">
                             {new Date(apt.appointmentDate).toLocaleString([], {
                               month: 'short',
@@ -278,16 +306,22 @@ export default function SchedulePage() {
                               minute: '2-digit',
                             })}
                           </span>
-                          <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium font-mono ${
+                            apt.status === 'CONFIRMED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : apt.status === 'NO_SHOW'
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+                          }`}>
                             {apt.status}
-                          </Badge>
+                          </span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-1">
+                        <div className="text-[11px] text-muted-foreground mt-1.5">
                           <span>Location: {apt.location || 'Mobile Visit'}</span>
                           {apt.referral && (
                             <>
                               <span> • </span>
-                              <Link href={`/referrals/${apt.referral.id}`} className="hover:underline">
+                              <Link href={`/referrals/${apt.referral.id}`} className="hover:underline font-mono text-zinc-700">
                                 Ref: {apt.referral.trackingNumber}
                               </Link>
                             </>
@@ -300,7 +334,7 @@ export default function SchedulePage() {
                           <Button
                             size="sm"
                             onClick={() => updateStatusMutation.mutate({ id: apt.id, status: 'CONFIRMED' })}
-                            className="h-7 text-[10px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-medium"
+                            className="h-7 text-[11px] bg-zinc-900 text-white hover:bg-zinc-800 shadow-2xs font-medium"
                           >
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Confirm (NP Visit)
@@ -323,7 +357,7 @@ export default function SchedulePage() {
                               notes: 'Patient not home',
                             });
                           }}
-                          className="h-7 text-[10px] text-amber-600 hover:bg-amber-500/10"
+                          className="h-7 text-[11px] text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 font-medium"
                         >
                           No Show
                         </Button>

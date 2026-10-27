@@ -29,6 +29,9 @@ import {
   Shield,
   Stethoscope,
 } from 'lucide-react';
+import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
+import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components/ui/status-badge';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/state-views';
 import { PipelineStage, WorkStatus, Priority, ClinicalReviewDecision, NoteReviewDecision, DocumentType } from '@heals/types';
 import { toast } from 'sonner';
 
@@ -128,8 +131,8 @@ export default function ReferralDetailPage() {
   if (isLoading) {
     return (
       <AppLayout title="Referral Details">
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="space-y-6 max-w-6xl mx-auto py-8">
+          <LoadingState message="Loading clinical referral details and gate history..." />
         </div>
       </AppLayout>
     );
@@ -138,11 +141,12 @@ export default function ReferralDetailPage() {
   if (error || !referral) {
     return (
       <AppLayout title="Referral Not Found">
-        <div className="py-12 text-center space-y-3">
-          <p className="text-sm text-destructive">Referral not found or out of authorized scope.</p>
-          <Button variant="outline" size="sm" onClick={() => router.push('/referrals')}>
-            Return to Referrals
-          </Button>
+        <div className="space-y-6 max-w-6xl mx-auto py-8">
+          <ErrorState
+            title="Referral Not Found"
+            message="The requested referral could not be located or falls outside your authorized territory."
+            onRetry={() => router.push('/referrals')}
+          />
         </div>
       </AppLayout>
     );
@@ -150,78 +154,41 @@ export default function ReferralDetailPage() {
 
   return (
     <AppLayout title={`Referral: ${referral.trackingNumber}`}>
-      <div className="space-y-6">
-        {/* Top Header Card */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
-          <div className="flex items-start gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/referrals')}
-              className="h-8 px-2 text-xs"
-            >
-              <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-              Referrals
-            </Button>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-xl font-bold tracking-tight text-foreground">
-                  {referral.patient?.firstName} {referral.patient?.lastName}
-                </h1>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {referral.trackingNumber}
-                </Badge>
-                {referral.priority === Priority.STAT && (
-                  <Badge variant="destructive" className="text-[10px] uppercase font-bold">
-                    STAT
-                  </Badge>
-                )}
-                {referral.priority === Priority.URGENT && (
-                  <Badge variant="secondary" className="text-[10px] uppercase bg-amber-500/15 text-amber-600">
-                    URGENT
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                <span>DOB: {referral.patient?.dateOfBirth}</span>
-                <span>•</span>
-                <span>MRN: {referral.patient?.mrn || 'N/A'}</span>
-                <span>•</span>
-                <span>Site: {referral.site} ({referral.state})</span>
-                <span>•</span>
-                <span className="font-mono">OCC Version: v{referral.version}</span>
-              </div>
+      <div className="space-y-6 max-w-6xl mx-auto">
+        {/* Top Standardized Page Header */}
+        <PageHeader backHref="/referrals" backLabel="Referrals">
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <PageHeaderHeading>
+                {referral.patient?.firstName} {referral.patient?.lastName}
+              </PageHeaderHeading>
+              <Badge variant="outline" className="font-mono text-xs border-border bg-zinc-50 font-semibold text-zinc-800">
+                {referral.trackingNumber}
+              </Badge>
+              <PriorityBadge priority={referral.priority} />
             </div>
+            <PageHeaderDescription>
+              DOB: {referral.patient?.dateOfBirth || 'N/A'} • MRN: {referral.patient?.mrn || 'N/A'} • Site: {referral.site} ({referral.state}) • OCC Version: v{referral.version}
+            </PageHeaderDescription>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Current Pipeline Stage
-              </span>
-              <Badge className="bg-primary text-primary-foreground font-semibold text-xs mt-0.5 shadow-2xs">
-                {referral.pipelineStage.replace('_', ' ')}
-              </Badge>
+          <PageHeaderActions>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">
+                  Stage
+                </span>
+                <PipelineStageBadge stage={referral.pipelineStage} />
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold block">
+                  Status
+                </span>
+                <WorkStatusBadge status={referral.workStatus} />
+              </div>
             </div>
-            <div className="flex flex-col items-end ml-2">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                Work Status
-              </span>
-              <Badge
-                variant="outline"
-                className={`text-xs mt-0.5 ${
-                  referral.workStatus === WorkStatus.BLOCKED_NEEDS_INFO
-                    ? 'border-amber-500/50 text-amber-600 bg-amber-500/10'
-                    : referral.workStatus === WorkStatus.IN_PROGRESS
-                    ? 'border-emerald-500/50 text-emerald-600 bg-emerald-500/10'
-                    : 'border-border text-muted-foreground'
-                }`}
-              >
-                {referral.workStatus.replace('_', ' ')}
-              </Badge>
-            </div>
-          </div>
-        </div>
+          </PageHeaderActions>
+        </PageHeader>
 
         {/* Action Panel for Clinical Triage & Transitions */}
         <Card className="border border-border/80 bg-muted/20">

@@ -207,3 +207,15 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+/**
+ * Normalizes API response structures into a guaranteed array of items.
+ * Handles { data: T[] }, { items: T[] }, T[], or undefined.
+ */
+export function extractApiList<T>(res: any): T[] {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.data)) return res.data;
+  if (Array.isArray(res.items)) return res.items;
+  return [];
+}

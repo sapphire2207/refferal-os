@@ -2,12 +2,14 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
+import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState, LoadingState } from '@/components/ui/state-views';
 import { ScrollText, Search, ShieldAlert, Loader2, RefreshCw } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 
@@ -29,61 +31,57 @@ export default function AuditAdminPage() {
   const debouncedAction = useDebounce(actionFilter, 350);
   const debouncedEntity = useDebounce(entityFilter, 350);
 
-  const { data, isLoading, refetch, isFetching } = useQuery<{
-    items: AuditRecord[];
-    total: number;
-  }>({
+  const { data, isLoading, refetch, isFetching } = useQuery<any>({
     queryKey: ['audit-logs', { action: debouncedAction, entityType: debouncedEntity }],
     queryFn: () => {
       const params = new URLSearchParams();
       if (debouncedAction.trim()) params.set('action', debouncedAction.trim());
       if (debouncedEntity.trim()) params.set('entityType', debouncedEntity.trim());
       params.set('limit', '50');
-      return apiClient.get<{ items: AuditRecord[]; total: number }>(`/audit?${params.toString()}`);
+      return apiClient.get<any>(`/audit?${params.toString()}`);
     },
     staleTime: 60 * 1000,
   });
 
-  const logs = data?.items || [];
+  const logs = extractApiList<AuditRecord>(data);
 
   return (
     <AppLayout title="HIPAA Compliance Audit Trail">
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <PageHeader>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Immutable HIPAA & PHI Surveillance Log
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Comprehensive audit trail tracking patient record access, transitions, downloads, and administrative actions
-            </p>
+            <PageHeaderHeading>Immutable HIPAA Surveillance Log</PageHeaderHeading>
+            <PageHeaderDescription>
+              Cryptographic audit trail tracking patient record access, transitions, downloads, and administrative actions
+            </PageHeaderDescription>
           </div>
+          <PageHeaderActions>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="h-8 gap-1.5 text-xs font-medium border-border"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              <span>Refresh Ledger</span>
+            </Button>
+          </PageHeaderActions>
+        </PageHeader>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="h-8 gap-1.5 text-xs"
-          >
-            <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-            <span>Refresh Audit Log</span>
-          </Button>
-        </div>
-
-        {/* Filters */}
+        {/* Filters Toolbar */}
         <div className="flex flex-wrap items-center gap-3">
           <Input
             placeholder="Filter by Action (e.g. REFERRAL_STAGE_CHANGE, PHI_ACCESS)..."
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
-            className="h-8 max-w-xs text-xs"
+            className="h-8 max-w-xs text-xs bg-white border-border"
           />
           <Input
             placeholder="Filter by Entity Type (e.g. Referral, Patient, Document)..."
             value={entityFilter}
             onChange={(e) => setEntityFilter(e.target.value)}
-            className="h-8 max-w-xs text-xs"
+            className="h-8 max-w-xs text-xs bg-white border-border"
           />
           <span className="text-xs text-muted-foreground font-mono ml-auto">
             {isLoading ? 'Querying ledger...' : `${logs.length} audit records retrieved`}
@@ -91,41 +89,41 @@ export default function AuditAdminPage() {
         </div>
 
         {/* Audit Log Table */}
-        <Card className="border border-border/80">
+        <Card className="border border-border/80 bg-card shadow-2xs">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/40 border-b border-border/60 text-muted-foreground uppercase text-[10px] tracking-wider">
-                  <tr>
-                    <th className="py-2.5 px-4 font-semibold">Timestamp</th>
-                    <th className="py-2.5 px-4 font-semibold">Action</th>
-                    <th className="py-2.5 px-4 font-semibold">Entity</th>
-                    <th className="py-2.5 px-4 font-semibold">User ID</th>
-                    <th className="py-2.5 px-4 font-semibold">IP Address</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60 font-mono">
-                  {isLoading ? (
+            {isLoading ? (
+              <LoadingState message="Querying cryptographic audit ledger..." />
+            ) : logs.length === 0 ? (
+              <EmptyState
+                icon={ScrollText}
+                title="No audit events found"
+                description="No security or transition events match your current filter parameters."
+                actionLabel={actionFilter || entityFilter ? 'Clear Filters' : undefined}
+                onAction={() => {
+                  setActionFilter('');
+                  setEntityFilter('');
+                }}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/40 border-b border-border/80 text-muted-foreground uppercase text-[10px] tracking-wider">
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-muted-foreground font-sans">
-                        <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
-                        Querying cryptographic audit trail...
-                      </td>
+                      <th className="py-2.5 px-4 font-semibold">Timestamp</th>
+                      <th className="py-2.5 px-4 font-semibold">Action</th>
+                      <th className="py-2.5 px-4 font-semibold">Entity</th>
+                      <th className="py-2.5 px-4 font-semibold">User ID</th>
+                      <th className="py-2.5 px-4 font-semibold">IP Address</th>
                     </tr>
-                  ) : logs.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-muted-foreground font-sans">
-                        No audit events matching criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    logs.map((log) => (
+                  </thead>
+                  <tbody className="divide-y divide-border/60 font-mono">
+                    {logs.map((log) => (
                       <tr key={log.id} className="hover:bg-muted/30 transition-colors text-[11px]">
                         <td className="py-3 px-4 text-muted-foreground">
                           {new Date(log.createdAt).toLocaleString()}
                         </td>
                         <td className="py-3 px-4 font-semibold text-foreground font-sans">
-                          <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                          <Badge variant="outline" className="text-[10px] uppercase font-mono border-zinc-200 bg-zinc-50 text-zinc-700">
                             {log.action}
                           </Badge>
                         </td>
@@ -139,11 +137,11 @@ export default function AuditAdminPage() {
                           {log.ipAddress || '127.0.0.1'}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
