@@ -182,6 +182,26 @@
   button[disabled] {
     cursor: not-allowed !important;
   }
+
+  /* Seamless modern scrollbars - completely remove native Windows grey scrollbars while preserving wheel & touch scrolling */
+  html,
+  body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
 }
 
 /* Subtle urgency indicator animation */
