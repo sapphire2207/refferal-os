@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, extractApiList } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-context';
+import { canSignVisits } from '@/lib/permissions';
 import { AppLayout } from '@/components/app-layout';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -12,12 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EmptyState, LoadingState } from '@/components/ui/state-views';
-import { Stethoscope, CheckCircle, Loader2, ShieldCheck, PenTool, RefreshCw } from 'lucide-react';
+import { Stethoscope, CheckCircle, Loader2, ShieldCheck, PenTool, RefreshCw, Lock } from 'lucide-react';
 import { PipelineStage } from '@heals/types';
 import { toast } from 'sonner';
 
 export default function VisitsPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canSign = canSignVisits(user?.roles);
   const [selectedReferral, setSelectedReferral] = useState<any | null>(null);
 
   // SOAP Note state
@@ -31,8 +35,8 @@ export default function VisitsPage() {
 
   // Fetch referrals in NP_VISIT stage
   const { data: visitsData, isLoading, refetch, isFetching } = useQuery<any>({
-    queryKey: ['referrals', { stage: PipelineStage.NP_VISIT }],
-    queryFn: () => apiClient.get<any>(`/referrals?stage=${PipelineStage.NP_VISIT}&limit=50`),
+    queryKey: ['referrals', { pipelineStage: PipelineStage.NP_VISIT }],
+    queryFn: () => apiClient.get<any>(`/referrals?pipelineStage=${PipelineStage.NP_VISIT}&limit=50`),
   });
 
   const visitQueue = extractApiList<any>(visitsData);
@@ -113,7 +117,7 @@ export default function VisitsPage() {
                 <CardTitle className="text-sm font-semibold">
                   Pending Visits ({visitQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-primary/20 bg-primary/10 text-primary">
+                <Badge variant="outline" className="text-[10px] font-semibold border-primary/20 bg-primary/10 text-primary">
                   NP_VISIT
                 </Badge>
               </div>
@@ -145,7 +149,7 @@ export default function VisitsPage() {
                           <span className="font-semibold text-foreground">
                             {ref.patient?.firstName} {ref.patient?.lastName}
                           </span>
-                          <span className="font-mono text-[10px] text-muted-foreground">
+                          <span className="font-medium text-[10px] text-muted-foreground">
                             {ref.trackingNumber}
                           </span>
                         </div>
@@ -265,6 +269,18 @@ export default function VisitsPage() {
                     />
                   </div>
 
+                  {!canSign && (
+                    <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                      <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block">View-Only Clinical Evaluation</span>
+                        <span className="text-[11px] opacity-90">
+                          Documenting and digitally signing in-home clinical evaluations is restricted to licensed Nurse Practitioners.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="p-3.5 bg-muted/30 rounded-lg border border-border/80 space-y-2">
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                       <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -273,7 +289,8 @@ export default function VisitsPage() {
                     <Input
                       value={signature}
                       onChange={(e) => setSignature(e.target.value)}
-                      className="h-8 text-xs font-mono bg-background border-border/80"
+                      disabled={!canSign}
+                      className="h-8 text-xs  bg-background border-border/80 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     <p className="text-[11px] text-muted-foreground">
                       Signing locks note revision immutably and immediately routes case to Notes QA Review.
@@ -284,8 +301,15 @@ export default function VisitsPage() {
                     <Button
                       size="sm"
                       onClick={() => submitEncounterMutation.mutate()}
-                      disabled={!subjective || !objective || !assessment || !plan || submitEncounterMutation.isPending}
-                      className="h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs"
+                      disabled={!canSign || !subjective || !objective || !assessment || !plan || submitEncounterMutation.isPending}
+                      title={
+                        !canSign
+                          ? 'Digital signing restricted to Nurse Practitioners'
+                          : !subjective || !objective || !assessment || !plan
+                          ? 'All SOAP fields (Subjective, Objective, Assessment, Plan) are required to complete sign-off'
+                          : 'Sign and route encounter to Notes QA'
+                      }
+                      className="h-8 px-4 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold gap-1.5 shadow-xs disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {submitEncounterMutation.isPending ? (
                         <>

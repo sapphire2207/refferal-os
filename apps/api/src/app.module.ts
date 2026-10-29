@@ -17,6 +17,7 @@ import { BillingModule } from './modules/billing/billing.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { WebsocketModule } from './modules/websocket/websocket.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -56,6 +57,7 @@ import { HealthController } from './health.controller';
     AuditModule,
     NotificationsModule,
     WebsocketModule,
+    CommentsModule,
   ],
   controllers: [HealthController],
 })

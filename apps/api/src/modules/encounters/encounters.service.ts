@@ -39,7 +39,11 @@ export class EncountersService {
     const allowedStates = user.scopes?.states || [];
     const allowedSites = user.scopes?.sites || [];
 
-    if (allowedStates.length === 0 && allowedSites.length === 0) return;
+    if (allowedStates.length === 0 && allowedSites.length === 0) {
+      throw new ForbiddenException(
+        'Access denied: You do not have an assigned location or territory scope.',
+      );
+    }
 
     const stateMatch = referral.state && allowedStates.includes(referral.state);
     const siteMatch = referral.site && allowedSites.includes(referral.site);
@@ -152,14 +156,16 @@ export class EncountersService {
       const allowedStates = user.scopes?.states || [];
       const allowedSites = user.scopes?.sites || [];
 
-      if (allowedStates.length > 0 || allowedSites.length > 0) {
-        where.referral = {
-          OR: [
-            ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
-            ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
-          ],
-        };
+      if (allowedStates.length === 0 && allowedSites.length === 0) {
+        return { data: [], total: 0, page, limit, totalPages: 0 };
       }
+
+      where.referral = {
+        OR: [
+          ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
+          ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
+        ],
+      };
     }
 
     const [total, data] = await Promise.all([
@@ -350,6 +356,15 @@ export class EncountersService {
    * Notes QA Review: Approve or Return note for correction.
    */
   async reviewNote(id: string, dto: ReviewNoteDto, user: AuthTokenPayload) {
+    const hasClinicalAuthority = user.roles?.some(
+      (r) => r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR,
+    );
+    if (!hasClinicalAuthority) {
+      throw new ForbiddenException(
+        'Access denied: Administrative and non-clinical roles are not permitted to review or approve clinical notes.',
+      );
+    }
+
     const note = await this.prisma.clinicalNote.findUnique({
       where: { id },
       include: { referral: true },
@@ -445,6 +460,89 @@ export class EncountersService {
     this.logger.log(
       `Recorded Notes QA review for note ${id}: decision ${dto.decision} -> stage ${result.referral.pipelineStage}`,
     );
+
+    return result;
+  }
+
+  /**
+   * Reviews the clinical documentation for a referral (used by Notes QA queue).
+   * Finds the latest signed clinical note or active note for the referral, or processes review directly.
+   */
+  async reviewNoteByReferral(referralId: string, dto: ReviewNoteDto, user: AuthTokenPayload) {
+    const hasClinicalAuthority = user.roles?.some(
+      (r) => r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR,
+    );
+    if (!hasClinicalAuthority) {
+      throw new ForbiddenException(
+        'Access denied: Administrative and non-clinical roles are not permitted to review or approve clinical notes.',
+      );
+    }
+
+    const referral = await this.prisma.referral.findUnique({
+      where: { id: referralId },
+    });
+    if (!referral) {
+      throw new NotFoundException(`Referral ${referralId} not found.`);
+    }
+    this.checkScope(user, referral);
+
+    // Look for clinical note
+    const note = await this.prisma.clinicalNote.findFirst({
+      where: { referralId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (note && note.signedAt) {
+      return this.reviewNote(note.id, dto, user);
+    }
+
+    // If no signed clinical note exists yet (e.g. synthetic or fast-tracked), perform referral stage transition safely
+    const result = await this.prisma.$transaction(async (tx) => {
+      if (dto.decision === NoteReviewDecision.APPROVE) {
+        const updatedReferral = await tx.referral.update({
+          where: { id: referralId },
+          data: {
+            pipelineStage: PipelineStage.BILLING as any,
+            workStatus: WorkStatus.PENDING as any,
+            billingStatus: BillingStatus.READY as any,
+            version: { increment: 1 },
+          },
+        });
+        await tx.workflowTransition.create({
+          data: {
+            referralId,
+            fromStage: PipelineStage.NOTES_QA as any,
+            toStage: PipelineStage.BILLING as any,
+            fromStatus: referral.workStatus as any,
+            toStatus: WorkStatus.PENDING as any,
+            transitionedBy: user.userId,
+            reason: dto.reason || 'Notes QA approved clinical documentation. Ready for billing.',
+          },
+        });
+        return { review: null, referral: updatedReferral };
+      } else {
+        const updatedReferral = await tx.referral.update({
+          where: { id: referralId },
+          data: {
+            pipelineStage: PipelineStage.NP_VISIT as any,
+            workStatus: WorkStatus.BLOCKED_NEEDS_INFO as any,
+            version: { increment: 1 },
+          },
+        });
+        await tx.workflowTransition.create({
+          data: {
+            referralId,
+            fromStage: PipelineStage.NOTES_QA as any,
+            toStage: PipelineStage.NP_VISIT as any,
+            fromStatus: referral.workStatus as any,
+            toStatus: WorkStatus.BLOCKED_NEEDS_INFO as any,
+            transitionedBy: user.userId,
+            reason: `Notes QA returned for correction: ${dto.correctionRequired || dto.reason || 'Documentation corrections required.'}`,
+          },
+        });
+        return { review: null, referral: updatedReferral };
+      }
+    });
 
     return result;
   }

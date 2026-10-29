@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -60,11 +61,16 @@ import {
   GripVertical,
   Layers,
   ArrowUpRight,
+  MessageSquare,
 } from 'lucide-react';
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useAuth } from '@/providers/auth-context';
+import { canTransitionStage, canCreateReferrals } from '@/lib/permissions';
 import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components/ui/status-badge';
+import { ReferralDrawer } from '@/components/referrals/referral-drawer';
+import { RollbackDialog } from '@/components/referrals/rollback-dialog';
 
 interface ReferralRecord {
   id: string;
@@ -104,11 +110,17 @@ const STAGES: { stage: PipelineStage; label: string; icon: React.ElementType; co
 
 export default function ReferralsPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [selectedReferralForDrawer, setSelectedReferralForDrawer] = useState<ReferralRecord | null>(null);
+  const [pendingRollback, setPendingRollback] = useState<{
+    referral: ReferralRecord;
+    targetStage: PipelineStage;
+  } | null>(null);
 
   // Configure pointer sensor with 5px distance constraint to allow click vs drag
   const sensors = useSensors(
@@ -147,16 +159,18 @@ export default function ReferralsPage() {
       id,
       targetStage,
       version,
+      reason,
     }: {
       id: string;
       targetStage: PipelineStage;
       version: number;
+      reason?: string;
     }) => {
       return apiClient.post(
         `/referrals/${id}/transitions`,
         {
           targetStage,
-          reason: 'Kanban drag-and-drop progression',
+          reason: reason || 'Kanban stage progression',
           version,
         },
         { idempotencyKey: `trans-${id}-${Date.now()}` },
@@ -239,10 +253,30 @@ export default function ReferralsPage() {
       return;
     }
 
+    const fromIndex = STAGES.findIndex((s) => s.stage === currentRef.pipelineStage);
+    const toIndex = STAGES.findIndex((s) => s.stage === targetStage);
+
+    if (!canTransitionStage(currentRef.pipelineStage, targetStage, user?.roles)) {
+      toast.error('Permission Denied', {
+        description: `Your role does not have authorization to transition referrals from ${currentRef.pipelineStage.replace('_', ' ')} to ${targetStage.replace('_', ' ')}.`,
+      });
+      return;
+    }
+
+    if (toIndex < fromIndex) {
+      // Backward transition requires a mandatory reason
+      setPendingRollback({
+        referral: currentRef,
+        targetStage,
+      });
+      return;
+    }
+
     transitionMutation.mutate({
       id: referralId,
       targetStage,
       version: currentRef.version,
+      reason: 'Kanban drag-and-drop progression',
     });
   };
 
@@ -356,7 +390,7 @@ export default function ReferralsPage() {
             </Select>
           </div>
 
-          <div className="ml-auto text-xs text-muted-foreground font-mono tabular-nums">
+          <div className="ml-auto text-xs text-muted-foreground font-medium tabular-nums">
             {isLoading ? 'Loading cases…' : `${referrals.length} active referrals`}
           </div>
         </div>
@@ -381,13 +415,21 @@ export default function ReferralsPage() {
                     onAdvance={(ref) => {
                       const next = getNextStage(ref.pipelineStage);
                       if (next) {
+                        if (!canTransitionStage(ref.pipelineStage, next, user?.roles)) {
+                          toast.error('Permission Denied', {
+                            description: `Your role cannot advance referrals from ${ref.pipelineStage.replace('_', ' ')}.`,
+                          });
+                          return;
+                        }
                         transitionMutation.mutate({
                           id: ref.id,
                           targetStage: next,
                           version: ref.version,
+                          reason: 'Stage advance button progression',
                         });
                       }
                     }}
+                    onOpenDrawer={(ref) => setSelectedReferralForDrawer(ref)}
                     isAdvancing={transitionMutation.isPending}
                   />
                 );
@@ -397,19 +439,19 @@ export default function ReferralsPage() {
             {/* Drag Overlay: Shows floating realistic preview while dragging */}
             <DragOverlay>
               {activeReferral ? (
-                <div className="w-[310px] rounded-xl border-2 border-black dark:border-white bg-card p-4 shadow-2xl scale-102 rotate-1 opacity-95">
+                <div className="w-[300px] rounded-lg border border-border bg-card p-3 shadow-xl opacity-95">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                    <span className="font-semibold tracking-tight text-[11px] text-muted-foreground">
                       {activeReferral.trackingNumber}
                     </span>
                     <Badge variant="outline" className="text-[9px] uppercase font-bold">
                       {activeReferral.priority}
                     </Badge>
                   </div>
-                  <div className="font-bold text-sm text-foreground">
+                  <div className="font-semibold text-xs text-foreground">
                     {activeReferral.patient?.firstName} {activeReferral.patient?.lastName}
                   </div>
-                  <div className="text-[11px] text-muted-foreground font-mono mt-1">
+                  <div className="text-[11px] text-muted-foreground  mt-1">
                     MRN: {activeReferral.patient?.medicalRecordNumber || 'MRN-Pending'}
                   </div>
                 </div>
@@ -424,7 +466,7 @@ export default function ReferralsPage() {
                 <thead className="bg-muted/40 border-b border-border/80 text-muted-foreground font-medium uppercase tracking-wider text-[10px]">
                   <tr>
                     <th className="py-3 px-4 w-10">
-                      <input type="checkbox" className="rounded border-border accent-black h-3.5 w-3.5" />
+                      <Checkbox aria-label="Select all" />
                     </th>
                     <th className="py-3 px-4 font-semibold">Patient & Tracking #</th>
                     <th className="py-3 px-4 font-semibold">Stage</th>
@@ -461,7 +503,7 @@ export default function ReferralsPage() {
                       return (
                         <tr key={r.id} className="hover:bg-muted/30 transition-colors">
                           <td className="py-3 px-4">
-                            <input type="checkbox" className="rounded border-border accent-black h-3.5 w-3.5" />
+                            <Checkbox aria-label="Select referral" />
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex flex-col">
@@ -471,7 +513,7 @@ export default function ReferralsPage() {
                               >
                                 {r.patient?.firstName} {r.patient?.lastName}
                               </Link>
-                              <span className="text-[11px] font-mono text-muted-foreground">
+                              <span className="text-[11px] font-medium text-muted-foreground">
                                 {mrn} • {r.trackingNumber}
                               </span>
                             </div>
@@ -496,12 +538,12 @@ export default function ReferralsPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-[11px] font-mono text-muted-foreground uppercase">
+                            <span className="text-[11px]  text-muted-foreground uppercase">
                               {r.site}
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-[11px] font-mono text-muted-foreground">
+                            <span className="text-[11px] font-medium text-muted-foreground">
                               v{r.version}
                             </span>
                           </td>
@@ -561,6 +603,69 @@ export default function ReferralsPage() {
             </div>
           </Card>
         )}
+
+        {/* Interactive Referral Detail & Actions Drawer */}
+        <ReferralDrawer
+          referral={selectedReferralForDrawer}
+          isOpen={!!selectedReferralForDrawer}
+          onClose={() => setSelectedReferralForDrawer(null)}
+          onAdvance={(ref) => {
+            const next = getNextStage(ref.pipelineStage);
+            if (next) {
+              if (!canTransitionStage(ref.pipelineStage, next, user?.roles)) {
+                toast.error('Permission Denied', {
+                  description: `Your role cannot advance referrals from ${ref.pipelineStage.replace('_', ' ')}.`,
+                });
+                return;
+              }
+              transitionMutation.mutate({
+                id: ref.id,
+                targetStage: next,
+                version: ref.version,
+                reason: 'Drawer stage advance progression',
+              });
+              setSelectedReferralForDrawer(null);
+            }
+          }}
+          onReturn={(ref) => {
+            const fromIdx = STAGES.findIndex((s) => s.stage === ref.pipelineStage);
+            if (fromIdx > 0) {
+              const prev = STAGES[fromIdx - 1].stage;
+              if (!canTransitionStage(ref.pipelineStage, prev, user?.roles)) {
+                toast.error('Permission Denied', {
+                  description: `Your role cannot return referrals from ${ref.pipelineStage.replace('_', ' ')}.`,
+                });
+                return;
+              }
+              setSelectedReferralForDrawer(null);
+              setPendingRollback({
+                referral: ref,
+                targetStage: prev,
+              });
+            }
+          }}
+          isAdvancing={transitionMutation.isPending}
+        />
+
+        {/* Mandatory Return / Rollback Reason Dialog */}
+        <RollbackDialog
+          isOpen={!!pendingRollback}
+          onClose={() => setPendingRollback(null)}
+          referral={pendingRollback?.referral || null}
+          targetStage={pendingRollback?.targetStage || null}
+          onConfirm={(reason) => {
+            if (pendingRollback) {
+              transitionMutation.mutate({
+                id: pendingRollback.referral.id,
+                targetStage: pendingRollback.targetStage,
+                version: pendingRollback.referral.version,
+                reason,
+              });
+              setPendingRollback(null);
+            }
+          }}
+          isLoading={transitionMutation.isPending}
+        />
       </div>
     </AppLayout>
   );
@@ -573,11 +678,13 @@ function KanbanDroppableColumn({
   stageConfig,
   referrals,
   onAdvance,
+  onOpenDrawer,
   isAdvancing,
 }: {
   stageConfig: (typeof STAGES)[0];
   referrals: ReferralRecord[];
   onAdvance: (ref: ReferralRecord) => void;
+  onOpenDrawer: (ref: ReferralRecord) => void;
   isAdvancing: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -589,29 +696,29 @@ function KanbanDroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col min-w-[300px] w-[325px] shrink-0 rounded-xl border transition-all duration-150 ${
+      className={`flex flex-col min-w-[290px] w-[310px] shrink-0 rounded-lg border transition-all duration-150 ${
         isOver
-          ? 'border-black ring-2 ring-black/10 bg-muted/40 dark:border-white dark:ring-white/10'
+          ? 'border-foreground/40 ring-1 ring-foreground/20 bg-muted/40'
           : 'border-border/80 bg-muted/20 shadow-2xs'
       }`}
     >
       {/* Column Header */}
-      <div className="flex items-center justify-between p-3.5 border-b border-border/70 bg-card rounded-t-xl">
+      <div className="flex items-center justify-between p-3 border-b border-border/70 bg-card rounded-t-lg">
         <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-md ${stageConfig.color}`}>
-            <ColIcon className="h-4 w-4" />
+          <div className={`p-1 rounded-md ${stageConfig.color}`}>
+            <ColIcon className="h-3.5 w-3.5" />
           </div>
           <span className="text-xs font-semibold text-foreground tracking-tight">
             {stageConfig.label}
           </span>
         </div>
-        <Badge variant="secondary" className="text-[11px] h-5 px-2 font-mono font-semibold">
+        <Badge variant="secondary" className="text-[10px] h-4.5 px-1.5  font-semibold">
           {referrals.length}
         </Badge>
       </div>
 
       {/* Cards Scroll Container */}
-      <div className="p-3 space-y-3 min-h-[480px] max-h-[calc(100vh-270px)] overflow-y-auto">
+      <div className="p-2.5 space-y-2.5 min-h-[480px] max-h-[calc(100vh-270px)] overflow-y-auto">
         {referrals.length === 0 ? (
           <div className="py-16 text-center text-xs text-muted-foreground/60 italic flex flex-col items-center gap-2">
             <CheckCircle2 className="h-6 w-6 opacity-30 text-muted-foreground" />
@@ -623,6 +730,7 @@ function KanbanDroppableColumn({
               key={ref.id}
               referral={ref}
               onAdvance={() => onAdvance(ref)}
+              onOpenDrawer={() => onOpenDrawer(ref)}
               isAdvancing={isAdvancing}
             />
           ))
@@ -633,15 +741,31 @@ function KanbanDroppableColumn({
 }
 
 // ----------------------------------------------------------------------------
+// Helper: Calculate stage elapsed age
+// ----------------------------------------------------------------------------
+function formatStageAge(dateStr?: string): string {
+  if (!dateStr) return '< 1h';
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) return '< 1h';
+  if (diffHours < 24) return `${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  const remHours = diffHours % 24;
+  return `${diffDays}d ${remHours}h`;
+}
+
+// ----------------------------------------------------------------------------
 // Draggable Rich Clinical Card Component
 // ----------------------------------------------------------------------------
 function KanbanDraggableCard({
   referral,
   onAdvance,
+  onOpenDrawer,
   isAdvancing,
 }: {
   referral: ReferralRecord;
   onAdvance: () => void;
+  onOpenDrawer: () => void;
   isAdvancing: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -656,14 +780,24 @@ function KanbanDraggableCard({
 
   const mrn = referral.patient?.medicalRecordNumber || 'MRN-Pending';
   const initials = `${referral.patient?.firstName?.[0] || ''}${referral.patient?.lastName?.[0] || ''}`.toUpperCase() || 'PT';
+  const stageAge = formatStageAge(referral.updatedAt || referral.createdAt);
+  const assignedRoleLabel = referral.assignedRole
+    ? referral.assignedRole.replace(/_/g, ' ')
+    : 'INTAKE QUEUE';
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative rounded-xl border border-border/80 bg-card p-4 shadow-xs hover:border-foreground/30 hover:shadow-sm transition-all space-y-3"
+      className="group relative rounded-xl border border-border/80 bg-card p-4 shadow-xs hover:border-foreground/30 hover:shadow-sm transition-all space-y-3 cursor-pointer"
+      onClick={(e) => {
+        // Prevent opening drawer if user is dragging or clicking buttons
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('a')) return;
+        onOpenDrawer();
+      }}
     >
-      {/* Top Header: Drag Handle, Tracking ID, Priority Badge */}
+      {/* Top Header: Drag Handle, Tracking ID, Priority Badge & Stage Aging */}
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
           <button
@@ -671,28 +805,36 @@ function KanbanDraggableCard({
             {...listeners}
             className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors"
             title="Drag across stages"
+            onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="h-3.5 w-3.5" />
           </button>
-          <span className="font-mono text-[10px] text-muted-foreground font-semibold truncate">
+          <span className="font-semibold tracking-tight text-[11px] text-muted-foreground truncate">
             {referral.trackingNumber}
           </span>
         </div>
 
-        {referral.priority === Priority.STAT ? (
-          <Badge variant="destructive" className="text-[9px] h-4 px-1.5 uppercase font-bold tracking-wider">
-            STAT
-          </Badge>
-        ) : referral.priority === Priority.URGENT ? (
-          <Badge
-            variant="outline"
-            className="text-[9px] h-4 px-1.5 uppercase font-semibold border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-          >
-            URGENT
-          </Badge>
-        ) : (
-          <span className="text-[10px] text-muted-foreground font-mono">Routine</span>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium tabular-nums" title="Time in current stage">
+            <Clock className="h-2.5 w-2.5 opacity-60" />
+            <span>{stageAge}</span>
+          </span>
+
+          {referral.priority === Priority.STAT ? (
+            <Badge variant="destructive" className="text-[9px] h-4 px-1.5 uppercase font-bold tracking-wider">
+              STAT
+            </Badge>
+          ) : referral.priority === Priority.URGENT ? (
+            <Badge
+              variant="outline"
+              className="text-[9px] h-4 px-1.5 uppercase font-semibold border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            >
+              URGENT
+            </Badge>
+          ) : (
+            <span className="text-[10px] text-muted-foreground font-medium">Routine</span>
+          )}
+        </div>
       </div>
 
       {/* Patient Demographic Summary */}
@@ -703,22 +845,26 @@ function KanbanDraggableCard({
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <Link
-            href={`/referrals/${referral.id}`}
-            className="font-semibold text-xs text-foreground hover:underline truncate block"
-          >
+          <div className="font-semibold text-xs text-foreground truncate block">
             {referral.patient?.firstName} {referral.patient?.lastName}
-          </Link>
+          </div>
           <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2">
-            <span className="font-mono">{mrn}</span>
+            <span className="font-medium text-muted-foreground">{mrn}</span>
             <span>•</span>
-            <span className="font-mono uppercase">{referral.site}</span>
+            <span className="font-semibold uppercase text-muted-foreground">{referral.site || 'Site-A'}</span>
           </div>
         </div>
       </div>
 
       {/* Clinical & Insurance Details */}
       <div className="space-y-1.5 text-[11px] bg-muted/30 p-2.5 rounded-lg border border-border/50">
+        <div className="flex items-center justify-between text-[10px] pb-1 border-b border-border/40 text-muted-foreground">
+          <span className="font-medium">Assigned Queue:</span>
+          <Badge variant="secondary" className="text-[9px] h-3.5 px-1.5 font-medium uppercase">
+            {assignedRoleLabel}
+          </Badge>
+        </div>
+
         {referral.referringFacility && (
           <div className="flex items-center gap-1.5 text-muted-foreground truncate">
             <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/80" />
@@ -736,7 +882,7 @@ function KanbanDraggableCard({
             <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-600" />
             <span className="truncate">{referral.insurancePayer}</span>
             {referral.insuranceMemberId && (
-              <span className="font-mono text-[10px] text-muted-foreground ml-auto">
+              <span className="font-medium text-[10px] text-muted-foreground ml-auto tabular-nums">
                 {referral.insuranceMemberId}
               </span>
             )}
@@ -746,25 +892,17 @@ function KanbanDraggableCard({
 
       {/* Card Footer: Work Status & Actions */}
       <div className="pt-2 border-t border-border/50 flex items-center justify-between gap-2">
-        <Badge
-          variant="outline"
-          className={`text-[9px] h-4 px-1.5 font-medium ${
-            referral.workStatus === WorkStatus.BLOCKED_NEEDS_INFO
-              ? 'border-amber-500/40 text-amber-600 bg-amber-500/10'
-              : referral.workStatus === WorkStatus.IN_PROGRESS
-              ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10'
-              : 'border-border text-muted-foreground'
-          }`}
-        >
-          {referral.workStatus.replace('_', ' ')}
-        </Badge>
+        <WorkStatusBadge status={referral.workStatus} />
 
         <div className="flex items-center gap-1.5">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={onAdvance}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdvance();
+            }}
             disabled={isAdvancing}
             className="h-6 text-[10px] px-2 gap-1 bg-background text-foreground hover:bg-primary hover:text-primary-foreground border border-border/80 transition-colors"
             title="Advance to next workflow stage"
@@ -773,16 +911,20 @@ function KanbanDraggableCard({
             <ArrowRight className="h-2.5 w-2.5" />
           </Button>
 
-          <Link href={`/referrals/${referral.id}`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-              title="View full referral"
-            >
-              <Eye className="h-3 w-3" />
-            </Button>
-          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDrawer();
+            }}
+            className="h-6 px-1.5 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+            title="Open Details & Comments Drawer"
+          >
+            <MessageSquare className="h-3 w-3" />
+            <span className="hidden sm:inline">Details</span>
+          </Button>
         </div>
       </div>
     </div>

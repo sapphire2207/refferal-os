@@ -121,6 +121,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       show:
         isAdmin ||
         userRoles.includes(UserRole.CLINICAL_COORDINATOR) ||
+        userRoles.includes(UserRole.CLINICAL_REVIEWER) ||
         activeWorkspace?.id === 'clinical_qa',
     },
     {
@@ -158,17 +159,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       {/* Header: Company Brand */}
       <SidebarHeader className="border-b border-border/80 px-3 py-3.5">
         <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden group">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-blue-700 text-white shadow-xs transition-transform duration-200 group-hover:scale-105">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background shadow-2xs transition-transform duration-150 group-hover:scale-105">
             <Activity className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="flex flex-col leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm tracking-tight text-sidebar-foreground truncate">
+              <span className="font-semibold text-xs tracking-tight text-sidebar-foreground truncate">
                 Heals on Wheels
               </span>
             </div>
-            <span className="text-[10px] text-muted-foreground font-mono truncate">
-              ReferralOS Enterprise
+            <span className="text-[10px] text-muted-foreground font-medium tracking-tight truncate">
+              ReferralOS
             </span>
           </div>
         </Link>
@@ -208,13 +209,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     isActive={item.isActive}
                     tooltip={item.title}
                     className={cn(
-                      'h-8.5 text-xs font-medium rounded-lg transition-colors',
+                      'h-8 text-xs font-medium rounded-md transition-colors',
                       item.isActive 
-                        ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary dark:bg-primary/15' 
+                        ? 'bg-accent text-accent-foreground font-semibold shadow-2xs' 
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     )}
                   >
-                    <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                    <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -238,13 +239,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       isActive={item.isActive}
                       tooltip={item.title}
                       className={cn(
-                        'h-8.5 text-xs font-medium rounded-lg transition-colors',
+                        'h-8 text-xs font-medium rounded-md transition-colors',
                         item.isActive 
-                          ? 'bg-primary/10 text-primary font-semibold border-l-2 border-primary dark:bg-primary/15' 
+                          ? 'bg-accent text-accent-foreground font-semibold shadow-2xs' 
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                       )}
                     >
-                      <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
+                      <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -268,9 +269,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       render={<Link href={item.url} />}
                       isActive={item.isActive}
                       tooltip={item.title}
-                      className="h-8 text-xs font-medium"
+                      className={cn(
+                        'h-8 text-xs font-medium rounded-md transition-colors',
+                        item.isActive 
+                          ? 'bg-accent text-accent-foreground font-semibold shadow-2xs' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -302,7 +308,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </Avatar>
                 <div className="grid flex-1 text-left text-xs leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold text-foreground">{userName}</span>
-                  <span className="truncate text-[11px] text-muted-foreground font-mono">
+                  <span className="truncate text-[11px] text-muted-foreground font-medium">
                     {userEmail}
                   </span>
                 </div>
@@ -325,7 +331,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <span className="truncate text-xs font-semibold text-foreground">
                         {userName}
                       </span>
-                      <span className="truncate text-[10px] text-muted-foreground font-mono">
+                      <span className="truncate text-[10px] text-muted-foreground font-medium">
                         {userEmail}
                       </span>
                     </div>

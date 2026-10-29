@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import {
   CreatePatientDto,
   UpdatePatientDto,
@@ -20,7 +21,10 @@ import { AuthTokenPayload, UserRole } from '@heals/types';
 export class PatientsService {
   private readonly logger = new Logger(PatientsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) { }
 
   /**
    * Normalized phone digits for fuzzy comparison.
@@ -183,7 +187,9 @@ export class PatientsService {
     const allowedSites = user.scopes?.sites || [];
 
     if (allowedStates.length === 0 && allowedSites.length === 0) {
-      return; // Unrestricted scope
+      throw new ForbiddenException(
+        'Access denied: You do not have an assigned location or territory scope.',
+      );
     }
 
     // Check patient residence state
@@ -276,10 +282,6 @@ export class PatientsService {
       where.dateOfBirth = new Date(query.dob);
     }
 
-    if (query.state) {
-      where.state = query.state.toUpperCase();
-    }
-
     if (query.city) {
       where.city = { contains: query.city, mode: 'insensitive' };
     }
@@ -289,9 +291,42 @@ export class PatientsService {
       const isAdmin = user.roles?.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);
       if (!isAdmin) {
         const allowedStates = user.scopes?.states || [];
-        if (allowedStates.length > 0) {
-          where.state = { in: allowedStates };
+        const allowedSites = user.scopes?.sites || [];
+        if (allowedStates.length === 0 && allowedSites.length === 0) {
+          return {
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          };
         }
+
+        if (query.state) {
+          const reqState = query.state.toUpperCase();
+          if (allowedStates.length > 0 && !allowedStates.includes(reqState)) {
+            return {
+              data: [],
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            };
+          }
+          where.state = reqState;
+        } else if (allowedStates.length > 0) {
+          where.state = { in: allowedStates };
+        } else if (allowedSites.length > 0) {
+          where.referrals = { some: { site: { in: allowedSites } } };
+        }
+      } else {
+        if (query.state) {
+          where.state = query.state.toUpperCase();
+        }
+      }
+    } else {
+      if (query.state) {
+        where.state = query.state.toUpperCase();
       }
     }
 
@@ -345,6 +380,12 @@ export class PatientsService {
 
     if (user) {
       this.checkScopeAuthorization(user, patient.state, patient.referrals);
+      await this.auditService.logPhiAccess(
+        user.userId,
+        'PATIENT',
+        patient.id,
+        `Patient record accessed (${patient.firstName.slice(0, 1)}. ${patient.lastName})`,
+      );
     }
 
     return patient;

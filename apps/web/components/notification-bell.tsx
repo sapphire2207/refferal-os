@@ -121,7 +121,7 @@ export function NotificationBell() {
                 <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
                   {n.message}
                 </p>
-                <span className="text-[10px] text-muted-foreground/80 mt-1 block font-mono">
+                <span className="text-[10px] text-muted-foreground/80 mt-1 block font-medium tabular-nums">
                   {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>

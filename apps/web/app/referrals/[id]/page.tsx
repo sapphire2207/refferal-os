@@ -28,11 +28,17 @@ import {
   User,
   Shield,
   Stethoscope,
+  Download,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components/ui/status-badge';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/state-views';
+import { ConfirmDangerDialog } from '@/components/ui/confirm-danger-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PipelineStage, WorkStatus, Priority, ClinicalReviewDecision, NoteReviewDecision, DocumentType } from '@heals/types';
+import { useAuth } from '@/providers/auth-context';
+import { canTransitionStage, canReviewNotes } from '@/lib/permissions';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -40,12 +46,32 @@ export default function ReferralDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [docType, setDocType] = useState<DocumentType>(DocumentType.REFERRAL_FORM);
   const [reviewDecision, setReviewDecision] = useState<ClinicalReviewDecision>(ClinicalReviewDecision.ACCEPT);
   const [reviewNotes, setReviewNotes] = useState('');
   const [statusReason, setStatusReason] = useState('');
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<any | null>(null);
+
+  const canManageDocs = user?.roles?.some(
+    (r) => r === 'ADMIN' || r === 'CLINICAL_COORDINATOR' || r === 'INTAKE_SPECIALIST',
+  );
+
+  const handleDownloadDoc = async (doc: any) => {
+    try {
+      toast.info('Starting document download…');
+      await apiClient.downloadBlob(
+        `/documents/${doc.id}/download`,
+        doc.originalFilename || doc.originalName || 'document',
+      );
+      toast.success('Document downloaded');
+    } catch (err: any) {
+      toast.error('Download failed', { description: err.message });
+    }
+  };
 
   // Fetch Referral details from backend
   const { data: referral, isLoading, error } = useQuery<any>({
@@ -129,6 +155,20 @@ export default function ReferralDetailPage() {
     },
   });
 
+  // Document Deletion Mutation
+  const deleteDocMutation = useMutation({
+    mutationFn: (docId: string) => apiClient.delete(`/documents/${docId}`),
+    onSuccess: () => {
+      toast.success('Document deleted');
+      setDocumentToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['referral', id] });
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
+    },
+    onError: (err: any) => {
+      toast.error('Deletion failed', { description: err.message });
+    },
+  });
+
   if (isLoading) {
     return (
       <AppLayout title="Referral Details">
@@ -181,7 +221,7 @@ export default function ReferralDetailPage() {
                   navigator.clipboard.writeText(referral.trackingNumber);
                   toast.success(`Copied Tracking # ${referral.trackingNumber}`);
                 }}
-                className="font-mono text-xs border border-border/80 bg-muted/50 px-2 py-0.5 rounded-md font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className=" text-xs border border-border/80 bg-muted/50 px-2 py-0.5 rounded-md font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer"
                 title="Click to copy tracking number"
               >
                 {referral.trackingNumber}
@@ -212,10 +252,10 @@ export default function ReferralDetailPage() {
         </PageHeader>
 
         {/* 6-Gate Visual Workflow Progress Stepper (Dribbble SaaS Benchmark) */}
-        <Card className="border border-border/80 bg-card p-4 rounded-xl shadow-xs overflow-hidden">
+        <Card className="border border-border/80 bg-card p-4 rounded-lg shadow-xs overflow-hidden">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1 flex items-center justify-between">
             <span>Authoritative Workflow Lifecycle</span>
-            <span className="text-[11px] font-mono text-primary font-medium">Gate {currentGateIndex + 1} of 6</span>
+            <span className="text-[11px]  text-primary font-medium">Gate {currentGateIndex + 1} of 6</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
@@ -237,7 +277,7 @@ export default function ReferralDetailPage() {
                   )}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] font-mono font-bold text-muted-foreground tabular-nums">0{gate.order}</span>
+                    <span className="text-[10px]  font-bold text-muted-foreground tabular-nums">0{gate.order}</span>
                     {isPast && <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />}
                     {isCurrent && <span className="h-2 w-2 rounded-full bg-primary animate-pulse-subtle" />}
                   </div>
@@ -304,8 +344,9 @@ export default function ReferralDetailPage() {
                         reason: 'Intake verification complete',
                       })
                     }
-                    disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
+                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.INTAKE, PipelineStage.CLINICAL_REVIEW, user?.roles)}
+                    title={canTransitionStage(PipelineStage.INTAKE, PipelineStage.CLINICAL_REVIEW, user?.roles) ? 'Advance referral' : 'Your role cannot transition referrals out of Intake'}
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
                     <span>Advance to Clinical Review</span>
                     <ArrowRight className="h-3 w-3" />
@@ -321,8 +362,9 @@ export default function ReferralDetailPage() {
                         reason: 'Clinical acceptance criteria met',
                       })
                     }
-                    disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
+                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.CLINICAL_REVIEW, PipelineStage.SCHEDULING, user?.roles)}
+                    title={canTransitionStage(PipelineStage.CLINICAL_REVIEW, PipelineStage.SCHEDULING, user?.roles) ? 'Accept and move to scheduling' : 'Requires Clinical Reviewer credentials'}
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
                     <span>Accept & Move to Scheduling</span>
                     <ArrowRight className="h-3 w-3" />
@@ -338,8 +380,9 @@ export default function ReferralDetailPage() {
                         reason: 'Provider dispatched and confirmed',
                       })
                     }
-                    disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
+                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.SCHEDULING, PipelineStage.NP_VISIT, user?.roles)}
+                    title={canTransitionStage(PipelineStage.SCHEDULING, PipelineStage.NP_VISIT, user?.roles) ? 'Confirm dispatch' : 'Requires Scheduler credentials'}
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
                     <span>Confirm & Dispatch NP Visit</span>
                     <ArrowRight className="h-3 w-3" />
@@ -355,8 +398,9 @@ export default function ReferralDetailPage() {
                         reason: 'Encounter note submitted for QA',
                       })
                     }
-                    disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
+                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.NP_VISIT, PipelineStage.NOTES_QA, user?.roles)}
+                    title={canTransitionStage(PipelineStage.NP_VISIT, PipelineStage.NOTES_QA, user?.roles) ? 'Submit to QA' : 'Requires Nurse Practitioner credentials'}
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
                     <span>Submit to Notes QA</span>
                     <ArrowRight className="h-3 w-3" />
@@ -372,8 +416,9 @@ export default function ReferralDetailPage() {
                         reason: 'Clinical notes QA approved',
                       })
                     }
-                    disabled={transitionMutation.isPending}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs"
+                    disabled={transitionMutation.isPending || !canReviewNotes(user?.roles)}
+                    title={canReviewNotes(user?.roles) ? 'Approve notes and advance' : 'Requires licensed Clinical Reviewer credentials'}
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
                     <span>Approve & Move to Billing</span>
                     <ArrowRight className="h-3 w-3" />
@@ -389,15 +434,19 @@ export default function ReferralDetailPage() {
                   Record Formal Clinical Review Decision
                 </span>
                 <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <select
+                  <Select
                     value={reviewDecision}
-                    onChange={(e) => setReviewDecision(e.target.value as ClinicalReviewDecision)}
-                    className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none"
+                    onValueChange={(val) => val && setReviewDecision(val as ClinicalReviewDecision)}
                   >
-                    <option value={ClinicalReviewDecision.ACCEPT}>ACCEPT (Criteria Satisfied)</option>
-                    <option value={ClinicalReviewDecision.RETURN}>RETURN (Missing Clinical Order)</option>
-                    <option value={ClinicalReviewDecision.REJECT}>REJECT (Ineligible / Out of Service)</option>
-                  </select>
+                    <SelectTrigger className="h-8 w-full sm:w-[260px] text-xs bg-background">
+                      <SelectValue placeholder="Select determination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ClinicalReviewDecision.ACCEPT}>ACCEPT (Criteria Satisfied)</SelectItem>
+                      <SelectItem value={ClinicalReviewDecision.RETURN}>RETURN (Missing Clinical Order)</SelectItem>
+                      <SelectItem value={ClinicalReviewDecision.REJECT}>REJECT (Ineligible / Out of Service)</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Input
                     placeholder="Enter clinical rationale or notes…"
                     value={reviewNotes}
@@ -407,18 +456,15 @@ export default function ReferralDetailPage() {
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (
-                        reviewDecision === ClinicalReviewDecision.REJECT &&
-                        !window.confirm(
-                          'Rejecting a referral permanently closes the clinical case with outcome REJECTED. Are you sure you wish to proceed?',
-                        )
-                      ) {
+                      if (reviewDecision === ClinicalReviewDecision.REJECT) {
+                        setShowRejectConfirm(true);
                         return;
                       }
                       reviewMutation.mutate();
                     }}
-                    disabled={reviewMutation.isPending}
-                    className="h-8 text-xs px-3"
+                    disabled={reviewMutation.isPending || !user?.roles?.some((r) => r === 'CLINICAL_REVIEWER' || r === 'CLINICAL_COORDINATOR' || r === 'ADMIN')}
+                    title={user?.roles?.some((r) => r === 'CLINICAL_REVIEWER' || r === 'CLINICAL_COORDINATOR' || r === 'ADMIN') ? 'Submit clinical determination' : 'Requires Clinical Reviewer credentials'}
+                    className="h-8 text-xs px-3 disabled:opacity-40"
                   >
                     Submit Decision
                   </Button>
@@ -473,7 +519,7 @@ export default function ReferralDetailPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/40">
                     <span className="text-muted-foreground">MRN:</span>
-                    <span className="font-mono">{referral.patient?.mrn || 'N/A'}</span>
+                    <span className="">{referral.patient?.mrn || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between py-1">
                     <span className="text-muted-foreground">Address / State:</span>
@@ -532,16 +578,20 @@ export default function ReferralDetailPage() {
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="h-8 text-xs file:h-6 file:text-xs"
                   />
-                  <select
+                  <Select
                     value={docType}
-                    onChange={(e) => setDocType(e.target.value as DocumentType)}
-                    className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none"
+                    onValueChange={(val) => val && setDocType(val as DocumentType)}
                   >
-                    <option value={DocumentType.REFERRAL_FORM}>Referral Form</option>
-                    <option value={DocumentType.CLINICAL_ORDER}>Clinical Order</option>
-                    <option value={DocumentType.INSURANCE_CARD}>Insurance Card</option>
-                    <option value={DocumentType.MEDICAL_RECORD}>Medical Record</option>
-                  </select>
+                    <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs bg-background">
+                      <SelectValue placeholder="Document Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={DocumentType.REFERRAL_FORM}>Referral Form</SelectItem>
+                      <SelectItem value={DocumentType.CLINICAL_ORDER}>Clinical Order</SelectItem>
+                      <SelectItem value={DocumentType.INSURANCE_CARD}>Insurance Card</SelectItem>
+                      <SelectItem value={DocumentType.MEDICAL_RECORD}>Medical Record</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     onClick={() => uploadDocMutation.mutate()}
@@ -565,7 +615,7 @@ export default function ReferralDetailPage() {
                         <div className="flex items-center gap-3">
                           <FileText className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <span className="font-semibold text-foreground">{doc.originalName}</span>
+                            <span className="font-semibold text-foreground">{doc.originalName || doc.originalFilename || 'Document'}</span>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                               <span>Type: {doc.documentType}</span>
                               <span>•</span>
@@ -573,9 +623,31 @@ export default function ReferralDetailPage() {
                             </div>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-[10px]">
-                          {doc.verified ? 'Verified' : 'Pending Verification'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[10px]">
+                            {doc.verified ? 'Verified' : 'Pending Verification'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadDoc(doc)}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            title="Download document"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          {canManageDocs && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDocumentToDelete(doc)}
+                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              title="Delete document"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -663,6 +735,39 @@ export default function ReferralDetailPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Clinical Rejection Danger Dialog */}
+        <ConfirmDangerDialog
+          open={showRejectConfirm}
+          onOpenChange={setShowRejectConfirm}
+          title="Reject Clinical Referral"
+          description={`Rejecting referral #${referral.referralNumber || referral.id.slice(0, 8)} permanently closes the case with status REJECTED. This decision is immutably recorded in the compliance audit log and cannot be undone.`}
+          confirmText="Reject Referral"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={reviewMutation.isPending}
+          onConfirm={() => {
+            setShowRejectConfirm(false);
+            reviewMutation.mutate();
+          }}
+        />
+
+        {/* Document Deletion Confirmation Dialog */}
+        <ConfirmDangerDialog
+          open={!!documentToDelete}
+          onOpenChange={(open) => !open && setDocumentToDelete(null)}
+          title="Delete Clinical Document"
+          description={`Are you sure you want to permanently delete "${documentToDelete?.originalFilename || documentToDelete?.originalName || 'this file'}"? This action cannot be undone and will be logged in the immutable compliance audit log.`}
+          confirmText="Delete Document"
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={deleteDocMutation.isPending}
+          onConfirm={() => {
+            if (documentToDelete) {
+              deleteDocMutation.mutate(documentToDelete.id);
+            }
+          }}
+        />
       </div>
     </AppLayout>
   );

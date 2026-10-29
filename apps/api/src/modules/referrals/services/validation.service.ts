@@ -146,6 +146,16 @@ export class ValidationService {
       this.logger.debug(`User ${user.userId} is ADMIN, bypassing scope checks`);
       return true;
     }
+
+    // 1b. Fail closed if user has no assigned scopes whatsoever
+    const hasAnyScope =
+      (user.scopes?.sites?.length ?? 0) > 0 ||
+      (user.scopes?.states?.length ?? 0) > 0 ||
+      (user.scopes?.legalEntities?.length ?? 0) > 0;
+    if (!hasAnyScope) {
+      this.logger.warn(`User ${user.userId} has no assigned territory/location scopes. Denying access (fail-closed).`);
+      return false;
+    }
     
     // 2. Check if referral.site is in user.scopes.sites (if site is set)
     if (referral.site) {

@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -156,8 +157,6 @@ export class EncountersController {
   @Roles(
     UserRole.CLINICAL_COORDINATOR,
     UserRole.CLINICAL_REVIEWER,
-    UserRole.OFFICE_MANAGER,
-    UserRole.ADMIN,
   )
   @ApiOperation({ summary: 'Notes QA Review: Approve to BILLING or Return to NP for correction' })
   @ApiParam({ name: 'id', description: 'Clinical Note UUID' })
@@ -167,6 +166,54 @@ export class EncountersController {
     @Body() dto: ReviewNoteDto,
     @CurrentUser() user: AuthTokenPayload,
   ) {
+    if (dto.reviewNotes && !dto.reason) {
+      dto.reason = dto.reviewNotes;
+    }
     return this.encountersService.reviewNote(id, dto, user);
+  }
+
+  @Post('notes/review')
+  @Roles(
+    UserRole.CLINICAL_COORDINATOR,
+    UserRole.CLINICAL_REVIEWER,
+  )
+  @ApiOperation({ summary: 'Notes QA Review by referral: Approve to BILLING or Return to NP' })
+  @ApiResponse({ status: 200, description: 'Review recorded and referral stage routed' })
+  async reviewNoteByBody(
+    @Body() dto: ReviewNoteDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    if (!dto.referralId) {
+      throw new BadRequestException('referralId is required for notes/review endpoint');
+    }
+    if (dto.reviewNotes && !dto.reason) {
+      dto.reason = dto.reviewNotes;
+    }
+    if (dto.reviewNotes && !dto.correctionRequired) {
+      dto.correctionRequired = dto.reviewNotes;
+    }
+    return this.encountersService.reviewNoteByReferral(dto.referralId, dto, user);
+  }
+
+  @Post('referrals/:referralId/review')
+  @Roles(
+    UserRole.CLINICAL_COORDINATOR,
+    UserRole.CLINICAL_REVIEWER,
+  )
+  @ApiOperation({ summary: 'Notes QA Review for a specific referral' })
+  @ApiParam({ name: 'referralId', description: 'Referral UUID' })
+  @ApiResponse({ status: 200, description: 'Review recorded and referral stage routed' })
+  async reviewReferralNote(
+    @Param('referralId') referralId: string,
+    @Body() dto: ReviewNoteDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    if (dto.reviewNotes && !dto.reason) {
+      dto.reason = dto.reviewNotes;
+    }
+    if (dto.reviewNotes && !dto.correctionRequired) {
+      dto.correctionRequired = dto.reviewNotes;
+    }
+    return this.encountersService.reviewNoteByReferral(referralId, dto, user);
   }
 }

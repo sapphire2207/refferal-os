@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, extractApiList } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-context';
+import { canManageBilling } from '@/lib/permissions';
 import { AppLayout } from '@/components/app-layout';
 import { PageHeader, PageHeaderHeading, PageHeaderDescription, PageHeaderActions } from '@/components/ui/page-header';
 import { Button } from '@/components/ui/button';
@@ -12,20 +14,25 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EmptyState, LoadingState } from '@/components/ui/state-views';
-import { Receipt, CheckCircle, AlertTriangle, ArrowRight, Loader2, Send, ShieldCheck, RefreshCw } from 'lucide-react';
+import { ConfirmDangerDialog } from '@/components/ui/confirm-danger-dialog';
+import { Receipt, CheckCircle, AlertTriangle, ArrowRight, Loader2, Send, ShieldCheck, RefreshCw, Lock } from 'lucide-react';
 import { PipelineStage, BillingStatus } from '@heals/types';
 import { toast } from 'sonner';
 
 export default function BillingPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canBilling = canManageBilling(user?.roles);
   const [selectedReferral, setSelectedReferral] = useState<any | null>(null);
   const [billingCodes, setBillingCodes] = useState('99349, 99350 (Home Visit, Complex)');
   const [chargeAmount, setChargeAmount] = useState('285.00');
+  const [claimToMarkPaid, setClaimToMarkPaid] = useState<any | null>(null);
+  const [claimToDeny, setClaimToDeny] = useState<any | null>(null);
 
   // Fetch referrals in BILLING stage
   const { data: billingData, isLoading: isQueueLoading, refetch: refetchQueue, isFetching: isFetchingQueue } = useQuery<any>({
     queryKey: ['referrals', { stage: PipelineStage.BILLING }],
-    queryFn: () => apiClient.get<any>(`/referrals?stage=${PipelineStage.BILLING}&limit=50`),
+    queryFn: () => apiClient.get<any>(`/referrals?pipelineStage=${PipelineStage.BILLING}&limit=50`),
   });
 
   // Fetch claims list
@@ -114,7 +121,7 @@ export default function BillingPage() {
                 <CardTitle className="text-sm font-semibold">
                   Billing Ready Queue ({billingQueue.length})
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px] font-mono border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                <Badge variant="outline" className="text-[10px] font-semibold border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
                   BILLING
                 </Badge>
               </div>
@@ -139,14 +146,14 @@ export default function BillingPage() {
                         key={ref.id}
                         onClick={() => setSelectedReferral(ref)}
                         className={`p-3.5 text-xs cursor-pointer transition-colors ${
-                          isSelected ? 'bg-zinc-100/70 border-l-2 border-zinc-900' : 'hover:bg-muted/30'
+                          isSelected ? 'bg-primary/10 border-l-2 border-primary' : 'hover:bg-muted/40'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-foreground">
                             {ref.patient?.firstName} {ref.patient?.lastName}
                           </span>
-                          <span className="font-mono text-[10px] text-muted-foreground">
+                          <span className="font-medium text-[10px] text-muted-foreground">
                             {ref.trackingNumber}
                           </span>
                         </div>
@@ -228,7 +235,7 @@ export default function BillingPage() {
                         id="cpt"
                         value={billingCodes}
                         onChange={(e) => setBillingCodes(e.target.value)}
-                        className="h-8 text-xs font-mono bg-white border-border"
+                        className="h-8 text-xs bg-background border-border"
                         required
                       />
                     </div>
@@ -242,18 +249,30 @@ export default function BillingPage() {
                         step="0.01"
                         value={chargeAmount}
                         onChange={(e) => setChargeAmount(e.target.value)}
-                        className="h-8 text-xs font-mono bg-white border-border"
+                        className="h-8 text-xs bg-background border-border"
                         required
                       />
                     </div>
                   </div>
 
+                  {!canBilling && (
+                    <div className="flex items-start gap-2.5 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                      <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block">View-Only Billing Workspace</span>
+                        <span className="text-[11px] opacity-90">
+                          Superbill claim creation and remittance adjudication are restricted to Billing Coordinators and Administrators.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 pt-2">
                     <Button
                       size="sm"
                       onClick={() => createClaimMutation.mutate()}
-                      disabled={createClaimMutation.isPending}
-                      className="h-8 px-4 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 shadow-2xs"
+                      disabled={createClaimMutation.isPending || !canBilling}
+                      className="h-8 px-4 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium gap-1.5 shadow-2xs disabled:opacity-50 disabled:pointer-events-none"
                     >
                       {createClaimMutation.isPending ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -281,7 +300,7 @@ export default function BillingPage() {
                   Paid claims automatically close case; Denied claims return case to blocked info for appeal
                 </CardDescription>
               </div>
-              <span className="text-xs text-muted-foreground font-mono">
+              <span className="text-xs text-muted-foreground font-medium tabular-nums">
                 {claims.length} claim{claims.length === 1 ? '' : 's'}
               </span>
             </div>
@@ -301,17 +320,17 @@ export default function BillingPage() {
                 {claims.map((claim: any) => (
                   <div
                     key={claim.id}
-                    className="p-4 flex items-center justify-between text-xs hover:bg-muted/30 transition-colors gap-4"
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs hover:bg-muted/30 transition-colors gap-3"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-semibold text-foreground">{claim.id.slice(0, 8)}</span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-medium ${
+                        <span className="font-semibold text-foreground">{claim.id.slice(0, 8)}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
                           claim.status === 'PAID'
-                            ? 'border border-emerald-200 text-emerald-700 bg-emerald-50'
+                            ? 'border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10'
                             : claim.status === 'DENIED' || claim.status === 'REJECTED'
-                            ? 'border border-rose-200 text-rose-700 bg-rose-50'
-                            : 'border border-zinc-200 text-zinc-700 bg-zinc-100'
+                            ? 'border border-rose-500/30 text-rose-700 dark:text-rose-400 bg-rose-500/10'
+                            : 'border border-border text-muted-foreground bg-muted/40'
                         }`}>
                           {claim.status}
                         </span>
@@ -323,45 +342,30 @@ export default function BillingPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      {claim.status !== 'PAID' && (
+                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                      {claim.status !== 'PAID' && canBilling && (
                         <>
                           <Button
                             size="sm"
-                            onClick={() => {
-                              if (
-                                !window.confirm(
-                                  'Marking a claim as PAID permanently closes the referral case as COMPLETED. Proceed?',
-                                )
-                              ) {
-                                return;
-                              }
-                              adjudicateMutation.mutate({ id: claim.id, status: 'PAID' });
-                            }}
-                            className="h-7 text-[11px] bg-emerald-700 text-white hover:bg-emerald-800 font-medium"
+                            onClick={() => setClaimToMarkPaid(claim)}
+                            className="h-7 text-[11px] bg-emerald-600 text-white hover:bg-emerald-700 font-medium"
                           >
                             Mark Paid (Close Case)
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              const reason = window.prompt(
-                                'Enter official claim denial or rejection code/reason:',
-                                'Coordination of benefits required',
-                              );
-                              if (!reason) return;
-                              adjudicateMutation.mutate({
-                                id: claim.id,
-                                status: 'DENIED',
-                                denialReason: reason,
-                              });
-                            }}
-                            className="h-7 text-[11px] text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100/50 font-medium"
+                            onClick={() => setClaimToDeny(claim)}
+                            className="h-7 text-[11px] text-rose-600 dark:text-rose-400 border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 font-medium"
                           >
                             Mark Denied
                           </Button>
                         </>
+                      )}
+                      {claim.status !== 'PAID' && !canBilling && (
+                        <span className="text-[10px] text-muted-foreground italic font-medium">
+                          Adjudication restricted to Billing
+                        </span>
                       )}
                     </div>
                   </div>
@@ -370,6 +374,54 @@ export default function BillingPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Adjudication Dialog: Mark Paid */}
+        <ConfirmDangerDialog
+          open={!!claimToMarkPaid}
+          onOpenChange={(open) => !open && setClaimToMarkPaid(null)}
+          title="Mark Claim as Paid & Close Case"
+          description={`Adjudicating Claim #${claimToMarkPaid?.claimNumber || claimToMarkPaid?.id?.slice(0, 8)} as PAID will permanently close the associated referral case as COMPLETED and record the payment remittance.`}
+          confirmText="Confirm Payment & Close Case"
+          cancelText="Cancel"
+          variant="default"
+          isLoading={adjudicateMutation.isPending}
+          onConfirm={() => {
+            if (claimToMarkPaid) {
+              adjudicateMutation.mutate(
+                { id: claimToMarkPaid.id, status: 'PAID' },
+                { onSettled: () => setClaimToMarkPaid(null) }
+              );
+            }
+          }}
+        />
+
+        {/* Adjudication Dialog: Mark Denied */}
+        <ConfirmDangerDialog
+          open={!!claimToDeny}
+          onOpenChange={(open) => !open && setClaimToDeny(null)}
+          title="Mark Claim as Denied"
+          description={`Marking Claim #${claimToDeny?.claimNumber || claimToDeny?.id?.slice(0, 8)} as DENIED flags the referral for billing follow-up or secondary submission. Please specify the official CARC or denial rationale below.`}
+          confirmText="Record Claim Denial"
+          cancelText="Cancel"
+          variant="danger"
+          requiresInput={true}
+          inputLabel="Official Denial Reason / CARC Code *"
+          inputPlaceholder="e.g. CO-16: Claim lacks information needed for adjudication"
+          initialInputValue="Coordination of benefits required"
+          isLoading={adjudicateMutation.isPending}
+          onConfirm={(reason) => {
+            if (claimToDeny) {
+              adjudicateMutation.mutate(
+                {
+                  id: claimToDeny.id,
+                  status: 'DENIED',
+                  denialReason: reason || 'Claim denied by payer',
+                },
+                { onSettled: () => setClaimToDeny(null) }
+              );
+            }
+          }}
+        />
       </div>
     </AppLayout>
   );

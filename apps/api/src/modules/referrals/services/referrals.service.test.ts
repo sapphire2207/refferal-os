@@ -4,6 +4,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { ValidationService } from './validation.service';
 import { EventService } from './event.service';
+import { AuditService } from '../../audit/audit.service';
 import {
   UserRole,
   AuthTokenPayload,
@@ -88,6 +89,13 @@ describe('ReferralsService', () => {
         { provide: RedisService, useValue: mockRedisService },
         { provide: ValidationService, useValue: mockValidationService },
         { provide: EventService, useValue: mockEventService },
+        {
+          provide: AuditService,
+          useValue: {
+            recordEvent: jest.fn().mockResolvedValue({ id: 'audit-ref-1' }),
+            logPhiAccess: jest.fn().mockResolvedValue({ id: 'audit-ref-1' }),
+          },
+        },
       ],
     }).compile();
 

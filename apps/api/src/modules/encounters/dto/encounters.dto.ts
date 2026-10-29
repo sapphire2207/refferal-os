@@ -108,6 +108,16 @@ export class ReviewNoteDto {
   @IsOptional()
   @IsString()
   correctionRequired?: string;
+
+  @ApiPropertyOptional({ description: 'Referral UUID (when reviewing note directly from referral queue)' })
+  @IsOptional()
+  @IsUUID('4')
+  referralId?: string;
+
+  @ApiPropertyOptional({ description: 'Review notes alias for reason' })
+  @IsOptional()
+  @IsString()
+  reviewNotes?: string;
 }
 
 export class QueryEncountersDto {

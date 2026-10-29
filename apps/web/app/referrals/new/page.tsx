@@ -1,22 +1,28 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/providers/auth-context';
+import { canCreateReferrals } from '@/lib/permissions';
 import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Priority } from '@heals/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Priority, UserRole } from '@heals/types';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, PlusCircle, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, PlusCircle, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function NewReferralPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const canCreate = canCreateReferrals(user?.roles);
 
   const [patientMode, setPatientMode] = useState<'existing' | 'new'>('new');
 
@@ -95,6 +101,29 @@ export default function NewReferralPage() {
     }
     createReferralMutation.mutate();
   };
+
+  if (!canCreate) {
+    return (
+      <AppLayout title="Access Restricted">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-4">
+          <div className="p-3 bg-amber-500/10 text-amber-600 rounded-full">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Intake Creation Restricted</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-md">
+              Initiating and enrolling inbound patient referrals requires Intake Specialist or Office Operations credentials.
+            </p>
+          </div>
+          <Link href="/referrals">
+            <Button size="sm" variant="outline" className="text-xs">
+              Return to Pipeline
+            </Button>
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="New Clinical Referral">
@@ -218,7 +247,7 @@ export default function NewReferralPage() {
                       value={mrn}
                       onChange={(e) => setMrn(e.target.value)}
                       placeholder="MRN-8921"
-                      className="h-8 text-xs font-mono"
+                      className="h-8 text-xs tabular-nums"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -230,7 +259,7 @@ export default function NewReferralPage() {
                       value={ssn}
                       onChange={(e) => setSsn(e.target.value)}
                       placeholder="XXX-XX-1234"
-                      className="h-8 text-xs font-mono"
+                      className="h-8 text-xs tabular-nums"
                     />
                   </div>
                 </div>
@@ -245,7 +274,7 @@ export default function NewReferralPage() {
                     onChange={(e) => setPatientId(e.target.value)}
                     placeholder="Enter existing patient UUID"
                     required
-                    className="h-8 text-xs font-mono"
+                    className="h-8 text-xs tabular-nums"
                   />
                 </div>
               )}
@@ -268,48 +297,48 @@ export default function NewReferralPage() {
                   <Label htmlFor="priority" className="text-xs">
                     Clinical Priority
                   </Label>
-                  <select
-                    id="priority"
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as Priority)}
-                    className="w-full h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value={Priority.ROUTINE}>Routine (Standard)</option>
-                    <option value={Priority.URGENT}>Urgent (Within 48h)</option>
-                    <option value={Priority.STAT}>STAT (Immediate)</option>
-                  </select>
+                  <Select value={priority} onValueChange={(val) => val && setPriority(val as Priority)}>
+                    <SelectTrigger id="priority" className="h-8 w-full text-xs bg-background">
+                      <SelectValue placeholder="Select Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={Priority.ROUTINE}>Routine (Standard)</SelectItem>
+                      <SelectItem value={Priority.URGENT}>Urgent (Within 48h)</SelectItem>
+                      <SelectItem value={Priority.STAT}>STAT (Immediate)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="site" className="text-xs">
                     Operational Site
                   </Label>
-                  <select
-                    id="site"
-                    value={site}
-                    onChange={(e) => setSite(e.target.value)}
-                    className="w-full h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="SITE-NYC">SITE-NYC (New York City)</option>
-                    <option value="SITE-ALB">SITE-ALB (Albany)</option>
-                    <option value="SITE-BUF">SITE-BUF (Buffalo)</option>
-                  </select>
+                  <Select value={site} onValueChange={(val) => setSite(val || 'SITE-NYC')}>
+                    <SelectTrigger id="site" className="h-8 w-full text-xs bg-background">
+                      <SelectValue placeholder="Select Site" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SITE-NYC">SITE-NYC (New York City)</SelectItem>
+                      <SelectItem value="SITE-ALB">SITE-ALB (Albany)</SelectItem>
+                      <SelectItem value="SITE-BUF">SITE-BUF (Buffalo)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="state" className="text-xs">
                     State Jurisdiction
                   </Label>
-                  <select
-                    id="state"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="NY">New York (NY)</option>
-                    <option value="NJ">New Jersey (NJ)</option>
-                    <option value="CT">Connecticut (CT)</option>
-                  </select>
+                  <Select value={state} onValueChange={(val) => setState(val || 'NY')}>
+                    <SelectTrigger id="state" className="h-8 w-full text-xs bg-background">
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NY">New York (NY)</SelectItem>
+                      <SelectItem value="NJ">New Jersey (NJ)</SelectItem>
+                      <SelectItem value="CT">Connecticut (CT)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

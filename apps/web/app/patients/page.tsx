@@ -16,14 +16,16 @@ import { useDebounce } from '@/hooks/use-debounce';
 
 interface PatientRecord {
   id: string;
-  mrn: string;
+  medicalRecordNumber?: string;
+  mrn?: string;
   firstName: string;
   lastName: string;
-  dateOfBirth: string;
-  phone: string;
-  gender: string;
-  site: string;
-  state: string;
+  dateOfBirth?: string;
+  phone?: string;
+  gender?: string;
+  city?: string;
+  state?: string;
+  site?: string;
   referrals?: any[];
   createdAt: string;
 }
@@ -88,7 +90,7 @@ export default function PatientsPage() {
               className="h-8 pl-8 text-xs bg-background border-border/80"
             />
           </div>
-          <span className="text-xs text-muted-foreground font-mono tabular-nums">
+          <span className="text-xs text-muted-foreground  tabular-nums">
             {isLoading ? 'Querying registry…' : `${patients.length} patient record${patients.length === 1 ? '' : 's'}`}
           </span>
         </div>
@@ -153,11 +155,17 @@ export default function PatientsPage() {
                               </span>
                             </div>
                           </td>
-                          <td className="py-2.5 px-4 font-mono font-medium text-foreground tabular-nums">{p.mrn || 'N/A'}</td>
-                          <td className="py-2.5 px-4 text-muted-foreground tabular-nums">{p.dateOfBirth}</td>
+                          <td className="py-2.5 px-4  font-medium text-foreground tabular-nums">
+                            {p.medicalRecordNumber || p.mrn || 'N/A'}
+                          </td>
+                          <td className="py-2.5 px-4 text-muted-foreground tabular-nums">
+                            {p.dateOfBirth ? new Date(p.dateOfBirth).toLocaleDateString() : 'N/A'}
+                          </td>
                           <td className="py-2.5 px-4 text-muted-foreground tabular-nums">{p.phone || 'N/A'}</td>
                           <td className="py-2.5 px-4">
-                            <span className="text-muted-foreground font-medium">{p.site} ({p.state})</span>
+                            <span className="text-muted-foreground font-medium">
+                              {p.city ? `${p.city}, ` : ''}{p.state || p.site || 'N/A'}
+                            </span>
                           </td>
                           <td className="py-2.5 px-4 text-right">
                             <Link href={`/patients/${p.id}`}>

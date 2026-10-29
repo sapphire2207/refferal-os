@@ -9,6 +9,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
 import { ValidationService } from './validation.service';
 import { EventService } from './event.service';
+import { AuditService } from '../../audit/audit.service';
 import {
   CreateReferralDto,
   UpdateReferralDto,
@@ -33,6 +34,7 @@ export class ReferralsService {
     private readonly redis: RedisService,
     private readonly validationService: ValidationService,
     private readonly eventService: EventService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -147,6 +149,16 @@ export class ReferralsService {
       throw new NotFoundException(`Referral with ID ${id} not found`);
     }
 
+    // Log PHI access for individual referral
+    if (referral.patient) {
+      await this.auditService.logPhiAccess(
+        user.userId,
+        'REFERRAL',
+        referral.id,
+        `Referral details viewed for patient ${referral.patient.id}`,
+      );
+    }
+
     return referral;
   }
 
@@ -161,25 +173,67 @@ export class ReferralsService {
     query: QueryReferralsDto,
     user: AuthTokenPayload,
   ): Promise<{ data: Referral[]; total: number; limit: number; offset: number }> {
-    const isAdmin = user.roles.includes(UserRole.ADMIN);
+    const isAdmin = user.roles.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);
     const where: Prisma.ReferralWhereInput = {};
 
-    // 1. Apply Scope Constraints for non-admins
+    // 1. Apply Scope Constraints for non-admins (Fail Closed)
     if (!isAdmin) {
-      if (user.scopes.sites && user.scopes.sites.length > 0) {
+      const hasAnyScope =
+        (user.scopes?.sites?.length ?? 0) > 0 ||
+        (user.scopes?.states?.length ?? 0) > 0 ||
+        (user.scopes?.legalEntities?.length ?? 0) > 0;
+      if (!hasAnyScope) {
+        return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+      }
+
+      if (query.site) {
+        if (user.scopes?.sites && user.scopes.sites.length > 0) {
+          if (!user.scopes.sites.includes(query.site)) {
+            return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+          }
+          where.site = query.site;
+        } else {
+          where.site = query.site;
+        }
+      } else if (user.scopes?.sites && user.scopes.sites.length > 0) {
         where.site = { in: user.scopes.sites };
       }
-      if (user.scopes.states && user.scopes.states.length > 0) {
+
+      if (query.state) {
+        if (user.scopes?.states && user.scopes.states.length > 0) {
+          if (!user.scopes.states.includes(query.state)) {
+            return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+          }
+          where.state = query.state;
+        } else {
+          where.state = query.state;
+        }
+      } else if (user.scopes?.states && user.scopes.states.length > 0) {
         where.state = { in: user.scopes.states };
       }
-      if (user.scopes.legalEntities && user.scopes.legalEntities.length > 0) {
+
+      if (query.legalEntity) {
+        if (user.scopes?.legalEntities && user.scopes.legalEntities.length > 0) {
+          if (!user.scopes.legalEntities.includes(query.legalEntity)) {
+            return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
+          }
+          where.legalEntity = query.legalEntity;
+        } else {
+          where.legalEntity = query.legalEntity;
+        }
+      } else if (user.scopes?.legalEntities && user.scopes.legalEntities.length > 0) {
         where.legalEntity = { in: user.scopes.legalEntities };
       }
+    } else {
+      if (query.site) where.site = query.site;
+      if (query.state) where.state = query.state;
+      if (query.legalEntity) where.legalEntity = query.legalEntity;
     }
 
     // 2. Apply Explicit Filter Overrides (within scope)
-    if (query.pipelineStage) {
-      where.pipelineStage = query.pipelineStage as unknown as any;
+    const stage = query.pipelineStage || query.stage;
+    if (stage) {
+      where.pipelineStage = stage as unknown as any;
     }
     if (query.workStatus) {
       where.workStatus = query.workStatus as unknown as any;
@@ -192,15 +246,6 @@ export class ReferralsService {
     }
     if (query.priority) {
       where.priority = query.priority;
-    }
-    if (query.site) {
-      where.site = query.site;
-    }
-    if (query.state) {
-      where.state = query.state;
-    }
-    if (query.legalEntity) {
-      where.legalEntity = query.legalEntity;
     }
     if (query.assignedTo) {
       where.assignedTo = query.assignedTo;
@@ -247,8 +292,27 @@ export class ReferralsService {
       this.prisma.referral.count({ where }),
     ]);
 
+    // Mask patient summary details in operational list projections (minimum necessary)
+    const projectedData = data.map((r: any) => {
+      const trackingNumber = r.trackingNumber || `REF-${r.id.slice(0, 8).toUpperCase()}`;
+      if (!r.patient) {
+        return { ...r, trackingNumber };
+      }
+      return {
+        ...r,
+        trackingNumber,
+        patient: {
+          ...r.patient,
+          medicalRecordNumber: r.patient.medicalRecordNumber
+            ? `MRN-***${r.patient.medicalRecordNumber.slice(-4)}`
+            : null,
+          phone: r.patient.phone ? `(***) ***-${r.patient.phone.slice(-4)}` : null,
+        },
+      };
+    });
+
     return {
-      data,
+      data: projectedData,
       total,
       limit,
       offset,
@@ -345,20 +409,6 @@ export class ReferralsService {
       this.logger.warn(`Redis getJson failed for dashboard metrics: ${e.message}`);
     }
 
-    const isAdmin = user.roles.includes(UserRole.ADMIN);
-    const where: Prisma.ReferralWhereInput = {};
-    if (!isAdmin) {
-      if (user.scopes.sites && user.scopes.sites.length > 0) {
-        where.site = { in: user.scopes.sites };
-      }
-      if (user.scopes.states && user.scopes.states.length > 0) {
-        where.state = { in: user.scopes.states };
-      }
-      if (user.scopes.legalEntities && user.scopes.legalEntities.length > 0) {
-        where.legalEntity = { in: user.scopes.legalEntities };
-      }
-    }
-
     // Initialize counts for all stages
     const byStage: Record<PipelineStage, number> = {
       [PipelineStage.INTAKE]: 0,
@@ -377,6 +427,34 @@ export class ReferralsService {
       [WorkStatus.ON_HOLD]: 0,
       [WorkStatus.COMPLETED]: 0,
     };
+
+    const isAdmin = user.roles?.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);
+    const where: Prisma.ReferralWhereInput = {};
+    if (!isAdmin) {
+      const hasAnyScope =
+        (user.scopes?.sites?.length ?? 0) > 0 ||
+        (user.scopes?.states?.length ?? 0) > 0 ||
+        (user.scopes?.legalEntities?.length ?? 0) > 0;
+      if (!hasAnyScope) {
+        return {
+          totalActive: 0,
+          byStage,
+          byStatus,
+          overdue: 0,
+          dueToday: 0,
+        };
+      }
+
+      if (user.scopes?.sites && user.scopes.sites.length > 0) {
+        where.site = { in: user.scopes.sites };
+      }
+      if (user.scopes?.states && user.scopes.states.length > 0) {
+        where.state = { in: user.scopes.states };
+      }
+      if (user.scopes?.legalEntities && user.scopes.legalEntities.length > 0) {
+        where.legalEntity = { in: user.scopes.legalEntities };
+      }
+    }
 
     const stageGroups = await this.prisma.referral.groupBy({
       by: ['pipelineStage'],

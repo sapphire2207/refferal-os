@@ -7,6 +7,7 @@ import { EventService } from '../services/event.service';
 import { AssignmentService } from '../services/assignment.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../redis/redis.service';
+import { AuditService } from '../../audit/audit.service';
 import {
   PipelineStage,
   WorkStatus,
@@ -245,6 +246,13 @@ describe('Referrals Workflow Engine - Integration Tests (Phase 12)', () => {
         AssignmentService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        {
+          provide: AuditService,
+          useValue: {
+            recordEvent: jest.fn().mockResolvedValue({ id: 'audit-int-1' }),
+            logPhiAccess: jest.fn().mockResolvedValue({ id: 'audit-int-1' }),
+          },
+        },
       ],
     }).compile();
 

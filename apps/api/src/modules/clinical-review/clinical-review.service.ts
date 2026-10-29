@@ -35,7 +35,11 @@ export class ClinicalReviewService {
     const allowedStates = user.scopes?.states || [];
     const allowedSites = user.scopes?.sites || [];
 
-    if (allowedStates.length === 0 && allowedSites.length === 0) return;
+    if (allowedStates.length === 0 && allowedSites.length === 0) {
+      throw new ForbiddenException(
+        'Access denied: You do not have an assigned location or territory scope.',
+      );
+    }
 
     const stateMatch = referral.state && allowedStates.includes(referral.state);
     const siteMatch = referral.site && allowedSites.includes(referral.site);
@@ -190,14 +194,16 @@ export class ClinicalReviewService {
       const allowedStates = user.scopes?.states || [];
       const allowedSites = user.scopes?.sites || [];
 
-      if (allowedStates.length > 0 || allowedSites.length > 0) {
-        where.referral = {
-          OR: [
-            ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
-            ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
-          ],
-        };
+      if (allowedStates.length === 0 && allowedSites.length === 0) {
+        return [];
       }
+
+      where.referral = {
+        OR: [
+          ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
+          ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
+        ],
+      };
     }
 
     return this.prisma.clinicalReview.findMany({

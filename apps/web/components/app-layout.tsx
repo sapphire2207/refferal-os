@@ -28,7 +28,7 @@ export function AppLayout({ children, title }: AppLayoutProps) {
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-mono">Authenticating session...</span>
+          <span className="text-sm font-medium text-foreground/80 tracking-tight">Authenticating session...</span>
         </div>
       </div>
     );
@@ -48,9 +48,9 @@ export function AppLayout({ children, title }: AppLayoutProps) {
       }
     >
       <AppSidebar variant="inset" />
-      <SidebarInset className="bg-background">
+      <SidebarInset className="bg-background min-w-0 max-w-full overflow-x-hidden">
         <SiteHeader title={title} />
-        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 max-w-full">
           {children}
         </main>
       </SidebarInset>

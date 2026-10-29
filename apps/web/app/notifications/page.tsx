@@ -67,7 +67,7 @@ export default function NotificationsPage() {
               size="sm"
               onClick={() => markAllReadMutation.mutate()}
               disabled={notifications.every((n) => n.isRead) || markAllReadMutation.isPending}
-              className="h-8 gap-1.5 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium shadow-2xs"
+              className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
             >
               <CheckCheck className="h-3.5 w-3.5" />
               <span>Mark All Read</span>
@@ -76,14 +76,14 @@ export default function NotificationsPage() {
         </PageHeader>
 
         {/* Filter Toggle Segmented Buttons */}
-        <div className="flex items-center gap-1.5 p-1 bg-zinc-100 rounded-lg w-fit border border-border/60">
+        <div className="flex items-center gap-1.5 p-1 bg-muted/40 rounded-lg w-fit border border-border/80">
           <button
             type="button"
             onClick={() => setFilter('all')}
             className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               filter === 'all'
-                ? 'bg-white text-zinc-900 shadow-2xs'
-                : 'text-zinc-600 hover:text-zinc-900'
+                ? 'bg-background text-foreground shadow-2xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             All Alerts ({notifications.length})
@@ -93,8 +93,8 @@ export default function NotificationsPage() {
             onClick={() => setFilter('unread')}
             className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               filter === 'unread'
-                ? 'bg-white text-zinc-900 shadow-2xs'
-                : 'text-zinc-600 hover:text-zinc-900'
+                ? 'bg-background text-foreground shadow-2xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Unread ({notifications.filter((n) => !n.isRead).length})
@@ -125,18 +125,18 @@ export default function NotificationsPage() {
                     key={n.id}
                     onClick={() => !n.isRead && markSingleReadMutation.mutate(n.id)}
                     className={`p-4 flex items-start justify-between gap-4 transition-colors cursor-pointer text-xs ${
-                      !n.isRead ? 'bg-zinc-50/70 font-medium' : 'hover:bg-muted/20 text-muted-foreground'
+                      !n.isRead ? 'bg-accent/40 font-medium' : 'hover:bg-muted/30 text-muted-foreground'
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-white text-zinc-700">
+                      <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background text-foreground shrink-0">
                         <Bell className="h-3.5 w-3.5" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-foreground text-xs">{n.title}</span>
                           {!n.isRead && (
-                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-zinc-900 text-white">
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-semibold bg-primary text-primary-foreground">
                               NEW
                             </span>
                           )}
@@ -144,7 +144,7 @@ export default function NotificationsPage() {
                         <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
                           {n.message}
                         </p>
-                        <span className="text-[10px] text-muted-foreground/70 mt-1 block font-mono">
+                        <span className="text-[10px] text-muted-foreground/70 mt-1 block ">
                           {new Date(n.createdAt).toLocaleString()}
                         </span>
                       </div>

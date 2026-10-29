@@ -105,7 +105,7 @@ export function SiteHeader({ title }: { title?: string }) {
                 <p className="text-xs font-semibold leading-none text-foreground">
                   {user ? `${user.firstName} ${user.lastName}` : 'Staff Member'}
                 </p>
-                <p className="text-[11px] leading-none text-muted-foreground font-mono">
+                <p className="text-[11px] leading-none text-muted-foreground font-medium">
                   {user?.email || 'staff@healsonwheels.com'}
                 </p>
                 {user?.roles && (
@@ -113,7 +113,7 @@ export function SiteHeader({ title }: { title?: string }) {
                     {user.roles.map((r) => (
                       <span
                         key={r}
-                        className="rounded bg-primary/10 border border-primary/20 px-1 py-0.5 text-[9px] font-mono text-primary"
+                        className="rounded bg-primary/10 border border-primary/20 px-1 py-0.5 text-[9px] font-semibold text-primary"
                       >
                         {r}
                       </span>

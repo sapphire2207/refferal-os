@@ -56,17 +56,17 @@ export default function PatientDetailPage() {
               <PageHeaderHeading>
                 {patient.firstName} {patient.lastName}
               </PageHeaderHeading>
-              <Badge variant="outline" className="font-mono text-xs border-border bg-muted/40 font-semibold">
-                MRN: {patient.mrn || 'N/A'}
+              <Badge variant="outline" className=" text-xs border-border bg-muted/40 font-semibold">
+                MRN: {patient.medicalRecordNumber || patient.mrn || 'N/A'}
               </Badge>
             </div>
             <PageHeaderDescription>
-              Verified clinical record • Scoped to site {patient.site} ({patient.state})
+              Verified clinical record • Residence: {patient.city ? `${patient.city}, ` : ''}{patient.state || 'N/A'}
             </PageHeaderDescription>
           </div>
           <PageHeaderActions>
             <Link href="/referrals/new">
-              <Button size="sm" className="h-8 gap-1.5 bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-medium shadow-2xs">
+              <Button size="sm" className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs">
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span>Create New Referral</span>
               </Button>
@@ -78,14 +78,16 @@ export default function PatientDetailPage() {
           <Card className="border border-border/80 bg-card shadow-2xs">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <User className="h-4 w-4 text-zinc-600" />
+                <User className="h-4 w-4 text-primary" />
                 Demographics & Identification
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2.5 pt-4 text-xs">
               <div className="flex justify-between py-1 border-b border-border/40">
                 <span className="text-muted-foreground">Date of Birth:</span>
-                <span className="font-medium text-foreground">{patient.dateOfBirth}</span>
+                <span className="font-medium text-foreground">
+                  {patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'N/A'}
+                </span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/40">
                 <span className="text-muted-foreground">Gender:</span>
@@ -97,7 +99,7 @@ export default function PatientDetailPage() {
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-muted-foreground">SSN:</span>
-                <span className="font-mono font-medium text-foreground">{patient.ssn ? `***-**-${patient.ssn.slice(-4)}` : 'N/A'}</span>
+                <span className=" font-medium text-foreground">{patient.ssn ? `***-**-${patient.ssn.slice(-4)}` : 'N/A'}</span>
               </div>
             </CardContent>
           </Card>
@@ -105,22 +107,22 @@ export default function PatientDetailPage() {
           <Card className="border border-border/80 bg-card shadow-2xs">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-zinc-600" />
+                <MapPin className="h-4 w-4 text-primary" />
                 Territory & Governance Scope
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2.5 pt-4 text-xs">
               <div className="flex justify-between py-1 border-b border-border/40">
-                <span className="text-muted-foreground">Operating Site:</span>
-                <span className="font-medium text-foreground">{patient.site}</span>
+                <span className="text-muted-foreground">City & State:</span>
+                <span className="font-medium text-foreground">{patient.city ? `${patient.city}, ` : ''}{patient.state || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-border/40">
-                <span className="text-muted-foreground">Jurisdiction State:</span>
-                <span className="font-medium text-foreground">{patient.state}</span>
+                <span className="text-muted-foreground">Zip Code:</span>
+                <span className="font-medium text-foreground">{patient.zipCode || 'N/A'}</span>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-muted-foreground">Legal Entity:</span>
-                <span className="font-medium text-foreground">{patient.legalEntity || 'LE-HEALS-NY'}</span>
+                <span className="text-muted-foreground">Address:</span>
+                <span className="font-medium text-foreground text-right">{patient.addressLine1 || 'On file'}</span>
               </div>
             </CardContent>
           </Card>
@@ -132,7 +134,7 @@ export default function PatientDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-zinc-600" />
+                  <FileText className="h-4 w-4 text-primary" />
                   Referral Encounters ({patient.referrals?.length || 0})
                 </CardTitle>
                 <CardDescription className="text-xs mt-0.5">
@@ -157,7 +159,7 @@ export default function PatientDetailPage() {
                     className="flex items-center justify-between p-3.5 px-4 hover:bg-muted/30 transition-colors text-xs"
                   >
                     <div>
-                      <span className="font-mono font-semibold text-foreground">{ref.trackingNumber}</span>
+                      <span className=" font-semibold text-foreground">{ref.trackingNumber}</span>
                       <div className="flex items-center gap-2 text-muted-foreground mt-0.5">
                         <span>Stage: {ref.pipelineStage.replace('_', ' ')}</span>
                         <span>•</span>
@@ -165,7 +167,7 @@ export default function PatientDetailPage() {
                       </div>
                     </div>
                     <Link href={`/referrals/${ref.id}`}>
-                      <Button variant="outline" size="sm" className="h-7 text-xs border-border hover:bg-zinc-100 font-medium">
+                      <Button variant="outline" size="sm" className="h-7 text-xs border-border hover:bg-accent font-medium">
                         View Referral
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </Button>

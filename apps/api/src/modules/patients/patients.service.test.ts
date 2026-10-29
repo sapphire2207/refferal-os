@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { UserRole, AuthTokenPayload } from '@heals/types';
 
 describe('PatientsService', () => {
@@ -74,6 +75,13 @@ describe('PatientsService', () => {
       providers: [
         PatientsService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: AuditService,
+          useValue: {
+            recordEvent: jest.fn().mockResolvedValue({ id: 'audit-pat-1' }),
+            logPhiAccess: jest.fn().mockResolvedValue({ id: 'audit-pat-1' }),
+          },
+        },
       ],
     }).compile();
 

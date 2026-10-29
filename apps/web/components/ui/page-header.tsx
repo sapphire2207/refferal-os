@@ -19,14 +19,14 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 border-b border-border/80 pb-5 md:flex-row md:items-center md:justify-between',
+        'flex flex-col gap-4 border-b border-border/80 pb-4 md:flex-row md:items-center md:justify-between min-w-0 max-w-full',
         className,
       )}
       {...props}
     >
-      <div className="space-y-1">
-        {backHref && (
-          <div className="mb-2">
+      {backHref ? (
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="mb-0.5">
             <Button
               variant="ghost"
               size="sm"
@@ -37,9 +37,11 @@ export function PageHeader({
               <span>{backLabel}</span>
             </Button>
           </div>
-        )}
-        {children}
-      </div>
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

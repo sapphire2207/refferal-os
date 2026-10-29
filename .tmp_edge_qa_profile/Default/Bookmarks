@@ -1,0 +1,139 @@
+{
+   "checksum": "a71ce9b990a5e8586bbe1e8f28d2d28a",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13285241670600189",
+            "date_last_used": "0",
+            "guid": "377ea4ce-da15-4921-b081-8aaaee802fe4",
+            "id": "7",
+            "name": "Gmail",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://accounts.google.com/b/0/AddMailService",
+            "visit_count": 0
+         }, {
+            "date_added": "13285241670601192",
+            "date_last_used": "0",
+            "guid": "e45f5619-462e-4f9f-9a96-a620f8e5a596",
+            "id": "8",
+            "name": "YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://youtube.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13285241670601870",
+            "date_last_used": "0",
+            "guid": "ad793394-a5a8-4fb6-9004-817e008c3111",
+            "id": "9",
+            "name": "Maps",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://maps.google.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13304574515304477",
+            "date_last_used": "0",
+            "guid": "2d06f85d-dc0d-4734-bd0c-2bdbdebe9dcc",
+            "id": "10",
+            "name": "Google",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.google.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13304574534096037",
+            "date_last_used": "0",
+            "guid": "1949b373-a99d-4689-9fed-0578f424b8a9",
+            "id": "11",
+            "name": "YouTube",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.youtube.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13304884762733033",
+            "date_last_used": "0",
+            "guid": "56425b07-c89d-4b51-a47b-b4bdae467264",
+            "id": "12",
+            "name": "Watch Telugu Movies Online & Download FREE - iBOMMA",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.ibomma.net/telugu-movies/",
+            "visit_count": 0
+         }, {
+            "date_added": "13315909214873150",
+            "date_last_used": "0",
+            "guid": "e15c69d9-61b4-4b5d-9464-45c1498b6c1f",
+            "id": "13",
+            "name": "Facility for download of e-PAN Card",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://www.pan.utiitsl.com/PAN_ONLINE/ePANCheckCard.action",
+            "visit_count": 0
+         }, {
+            "date_added": "13339089253231455",
+            "date_last_used": "0",
+            "guid": "a6959c8a-8109-4f83-8c6b-d7358d309347",
+            "id": "14",
+            "name": "POWERGRID Recruitment",
+            "show_icon": false,
+            "source": "sync",
+            "type": "url",
+            "url": "https://careers.powergrid.in/recruitment-nextgen/h/app_detail.aspx?appid=qTsRL8iujVjdyEbx4xCAKQ==",
+            "visit_count": 0
+         } ],
+         "date_added": "13437754669379520",
+         "date_last_used": "0",
+         "date_modified": "13339089253231455",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Favorites bar",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13437754669379520",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Other favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13437754669379520",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobile favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "workspaces_v2": {
+         "children": [  ],
+         "date_added": "13437754669379520",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "75aa6670-344f-549d-b742-660f029506ab",
+         "id": "5",
+         "name": "Workspaces",
+         "source": "unknown",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "CkEKHgiIgQISCO0b3YehAQAAKg4QABgBIAAoBTAAOABAABIAKhh6RGNDUHF4Z2kra0JhemhieDJmbVZBPT1IA6AGDBKMAQgFEocBChx3UkJyWkwrNlBBOWF2S2dqTlA3SlhETGNmdnM9EiQxYjQ2YjAxYi0xOGI4LTU0NWUtYmY5My1jM2M4MTlkYThiNjMYACAAKAAw4vHLsJYzOJDzy7CWM0CQ88uwljNKHG5teDY1c1FEdnhJOFRnRWV2K0ErbnR0b1NuND1lAAAAAMI+AmAAEqwBCAgSpwEKHHExNzlNcmpUUkdHNlFlN3RiM2JyaDNCRTRMVT0SJGU0NWY1NjE5LTQ2MmUtNGY5Zi05YTk2LWE2MjBmOGU1YTU5NhgAIAAoADCR49r3gDM4ya2k2vQvQMmtpNr0L0ocRmEwWk0wWXcvUDI4OTB1OC9sbkh6UEdPeURnPVoeIhxya2V2dDNzNnNvVUlpTUZGd3QwdkF6dGFQREk9ZTj5OTPCPgJgBRKtAQgKEqgBChxXM0JnWjRabm9vTVdjb2ZGeEYxV0liZlNFMWM9EiQyZDA2Zjg1ZC1kYzBkLTQ3MzQtYmQwYy0yYmRiZGViZTlkY2MYACAAKAAwkOPa94AzOJPj6/isMECT4+v4rDBKHG5hS2FMWG9LbytSNG9NeEo2Y082dTR0Rm1jVT1aHyId3EtiMVhhTnN1VEdIRFhpTXhwUWkvbnMxbm9YQT1lEDD/5MI+AmAFEq0BCA4SqAEKHHdpbFZlMFYvUk9GZjF6c0I5QUt5TUxXQ0c3VT0SJGE2OTU5YzhhLTgxMDktNGY4My04YzZiLWQ3MzU4ZDMwOTM0NxgAIAAoADDhv5CdnjM44cSQnZ4zQOHEkJ2eM0ocU3ZRV2g1KzBPMVlWbmJyalFLcjJCYjFIa05rPVofIh39UEorYng2TDV5cG9vSzFwTGs1NnpBS1owS3dJPWVOOMWowj4CYAUSrQEIDRKoAQocdWF1SVc0YURadjVsZ3luREtXNFdtR1c3WjJNPRIkZTE1YzY5ZDktNjFiNC00YjVkLTk0NjQtNDVjMTQ5OGI2YzFmGAAgACgAMMLa77jZMDj82++42TBA/NvvuNkwShw2bCtsS2sxRGh2M3dVbXErV1VDK0hNdjgwQlU9Wh8iHftqKzhWUFFOTzJyMzdLdys5bUlUUUdIWElFRDg9ZQAAAADCPgJgBRKMAQgCEocBChxZY1NUb252RVNQd3FDczRMMmNyVmh2NjhMOTg9EiQ4NGE5NDE4Zi0zZTgwLTU0YWItOGZkOS1jNDU3MTlhYjg1NjkYACAAKAAwz/3s4LMwOPOkpNr0L0DzpKTa9C9KHG9QVmtod0JSYlY2NUtDV1IyK0lPTkhXb091OD1lAAAAAMI+AmAAEq0BCAsSqAEKHE11VTk0bDBrVjJiWk9lNzNNZ05VVHJoZXZKOD0SJDE5NDliMzczLWE5OWQtNDY4OS05ZmVkLTA1NzhmNDI0YjhhORgAIAAoADCP49r3gDM40uPr+KwwQNLj6/isMEocV1IxVDk4WjVPR0tqTHArTmlvbkZLOXFqNzVNPVofIh3uWXl4aUcyQ09EcHgzWFpLVis4NVZqQ3BWdGRJPWU4+Tkzwj4CYAUSrQEIDBKoAQocZjBkTjA0SGdsbERQQTAyclE3bHlSWU9ZSGwwPRIkNTY0MjViMDctYzg5ZC00YjUxLWE0N2ItYjRiZGFlNDY3MjY0GAAgACgAMJLj2veAMzjx4+v4rDBA8ePr+KwwShxpSzRzUGROdjk1UDYyM3dpRmFxOUxUQ2pWSTA9Wh8iHfczUHIwY1ZHTXVLNEhzTUJvNEpwWCtZUWRaN3M9ZZzV3cnCPgJgBRKtAQgJEqgBChxhSTNCOUVTbnU3Z0lpZWZtY2pkRHIxNzVLckk9EiRhZDc5MzM5NC1hNWE4LTRmYjYtOTAwNC04MTdlMDA4YzMxMTEYACAAKAAwjePa94AzOIeupNr0L0CHrqTa9C9KHHdRaUM4R21kRHRzNTh5VWhJNUZKb2dKK0kwTT1aHyIduWREMTRCUDR4U2RWd2ZIUndJY3BzMkorVGpiND1lpPvomMI+AmAFEqwBCAcSpwEKHENmWi9LZzNBUFRUbVJIMUQrNVhTRUhsaW5BRT0SJDM3N2VhNGNlLWRhMTUtNDkyMS1iMDgxLThhYWFlZTgwMmZlNBgAIAAoADCO49r3gDM46K2k2vQvQOitpNr0L0ocaTM5cTZZQjk0UGtXS1VlRnpxcEpSVkEvcmdFPVoeIhxKZXhvVUJKRStqUGVkc1ppWDZKWVdOWGlHN2c9ZRAw/+TCPgJgBRKMAQgBEocBChx5eEovNmZ2a2VjcjdrcDVFUXpCNHRXTHBkYkU9EiQ1MTE0YzFiNC05MmU0LTVhOGUtODUyZS1kZmJmZDI5MWQ5NGIYACAAKAAwz/3s4LMwOOSkpNr0L0DkpKTa9C9KHGFSQ1dMZ2hGOWI1SW5xS0lEdnVKL2p2UWtGYz1lAAAAAMI+AmAAEowBCAMShwEKHG5qZ0R1ODhlQ3J2WHA4NnBEN2ZIR2NxRnA4OD0SJGY0MGQ3MGUyLWIzNWItNTllZC1hNGZiLTU3MjdiNGU0NGExYhgAIAAoADDP/ezgszA40aWk2vQvQNGlpNr0L0oceXpOQjAxY241NEE3Y1JVMHVUKy9QZ21UdFVvPWUAAAAAwj4CYAAwADgA",
+   "version": 1
+}

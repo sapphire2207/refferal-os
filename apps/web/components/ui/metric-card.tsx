@@ -11,6 +11,7 @@ interface MetricCardProps extends React.HTMLAttributes<HTMLDivElement> {
   isPositive?: boolean;
   subtext?: string;
   accentColor?: 'blue' | 'emerald' | 'amber' | 'rose' | 'purple';
+  isLoading?: boolean;
 }
 
 export function MetricCard({
@@ -21,6 +22,7 @@ export function MetricCard({
   isPositive,
   subtext,
   accentColor = 'blue',
+  isLoading = false,
   className,
   ...props
 }: MetricCardProps) {
@@ -58,29 +60,38 @@ export function MetricCard({
         )}
       </div>
 
-      <div className="mt-3.5 flex items-baseline justify-between gap-2">
-        <span className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{value}</span>
-        {delta && (
-          <div
-            className={cn(
-              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border tabular-nums',
-              isPositive 
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
-                : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+      {isLoading ? (
+        <div className="mt-3.5 space-y-2">
+          <div className="h-8 w-20 bg-muted/60 animate-pulse rounded-md" />
+          <div className="h-3 w-36 bg-muted/40 animate-pulse rounded" />
+        </div>
+      ) : (
+        <>
+          <div className="mt-3.5 flex items-baseline justify-between gap-2">
+            <span className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{value}</span>
+            {delta && (
+              <div
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border tabular-nums',
+                  isPositive 
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                    : 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400',
+                )}
+              >
+                {isPositive ? (
+                  <TrendingUp className="h-3 w-3 shrink-0" aria-hidden="true" />
+                ) : (
+                  <TrendingDown className="h-3 w-3 shrink-0" aria-hidden="true" />
+                )}
+                <span>{delta}</span>
+              </div>
             )}
-          >
-            {isPositive ? (
-              <TrendingUp className="h-3 w-3 shrink-0" aria-hidden="true" />
-            ) : (
-              <TrendingDown className="h-3 w-3 shrink-0" aria-hidden="true" />
-            )}
-            <span>{delta}</span>
           </div>
-        )}
-      </div>
 
-      {subtext && (
-        <span className="mt-2 block text-[11px] text-muted-foreground/90 font-medium">{subtext}</span>
+          {subtext && (
+            <span className="mt-2 block text-[11px] text-muted-foreground/90 font-medium">{subtext}</span>
+          )}
+        </>
       )}
     </Card>
   );

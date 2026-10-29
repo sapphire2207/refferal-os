@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException, ForbiddenException } from '@nes
 import * as fs from 'fs';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { UserRole, AuthTokenPayload, DocumentType, ExtractionStatus } from '@heals/types';
 
 jest.mock('fs', () => ({
@@ -96,6 +97,13 @@ describe('DocumentsService', () => {
       providers: [
         DocumentsService,
         { provide: PrismaService, useValue: prisma },
+        {
+          provide: AuditService,
+          useValue: {
+            recordEvent: jest.fn().mockResolvedValue({ id: 'audit-doc-1' }),
+            logPhiAccess: jest.fn().mockResolvedValue({ id: 'audit-doc-1' }),
+          },
+        },
       ],
     }).compile();
 
@@ -295,28 +303,28 @@ describe('DocumentsService', () => {
   });
 
   describe('extractDocument', () => {
-    it('should run AI extraction pipeline and persist high-confidence structured data', async () => {
+    it('should return safe unconfigured result when AI service credentials are not configured', async () => {
       prisma.document.findUnique.mockResolvedValue(mockDocument);
       prisma.document.update.mockResolvedValue({
         ...mockDocument,
-        extractionStatus: ExtractionStatus.COMPLETED,
-        confidenceScore: 0.94,
-        extractionData: { patientName: 'Eleanor Vance' },
+        extractionStatus: ExtractionStatus.FAILED,
+        confidenceScore: 0.0,
+        extractionData: null,
+        extractionError:
+          'AI extraction engine is currently not configured. Document has been securely preserved for manual staff intake and verification.',
       });
 
       const res = await service.extractDocument(mockDocument.id, flStaffUser);
 
-      expect(res.extractionStatus).toBe(ExtractionStatus.COMPLETED);
-      expect(res.confidenceScore).toBe(0.94);
+      expect(res.extractionStatus).toBe(ExtractionStatus.FAILED);
+      expect(res.confidenceScore).toBe(0.0);
       expect(prisma.document.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: mockDocument.id },
           data: expect.objectContaining({
-            extractionStatus: ExtractionStatus.COMPLETED,
-            confidenceScore: 0.94,
-            extractionData: expect.objectContaining({
-              patientName: 'Eleanor Vance',
-            }),
+            extractionStatus: ExtractionStatus.FAILED,
+            confidenceScore: 0.0,
+            extractionData: null,
           }),
         }),
       );

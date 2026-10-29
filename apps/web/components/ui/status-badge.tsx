@@ -12,29 +12,35 @@ interface WorkStatusBadgeProps {
 }
 
 export function WorkStatusBadge({ status, className }: WorkStatusBadgeProps) {
-  const isDone = status === WorkStatus.IN_PROGRESS;
-  const isNeedsInfo = status === WorkStatus.BLOCKED_NEEDS_INFO;
+  const isPending = status === WorkStatus.PENDING || status === 'PENDING';
+  const isInProgress = status === WorkStatus.IN_PROGRESS || status === 'IN_PROGRESS';
+  const isOnHold = status === WorkStatus.ON_HOLD || status === 'ON_HOLD';
+  const isBlocked = status === WorkStatus.BLOCKED_NEEDS_INFO || status === 'BLOCKED_NEEDS_INFO';
   const isCompleted = status === 'COMPLETED' || status === 'ARCHIVED';
 
-  const containerStyle = isDone
-    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-    : isNeedsInfo
+  const containerStyle = isInProgress
+    ? 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400'
+    : isOnHold
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+    : isBlocked
+    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400'
     : isCompleted
-    ? 'border-primary/30 bg-primary/10 text-primary dark:text-primary-foreground'
-    : 'border-border/80 bg-muted/40 text-muted-foreground';
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+    : 'border-border/80 bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300';
 
-  const dotColor = isDone
-    ? 'bg-emerald-500 animate-pulse-subtle'
-    : isNeedsInfo
+  const dotColor = isInProgress
+    ? 'bg-blue-500 animate-pulse-subtle'
+    : isOnHold
     ? 'bg-amber-500'
+    : isBlocked
+    ? 'bg-rose-500 animate-pulse'
     : isCompleted
-    ? 'bg-primary'
+    ? 'bg-emerald-500'
     : 'bg-neutral-400';
 
   const label =
     status === WorkStatus.BLOCKED_NEEDS_INFO
-      ? 'Needs Info'
+      ? 'Blocked / Needs Info'
       : status.replace(/_/g, ' ');
 
   return (
@@ -98,7 +104,7 @@ export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
     <span 
       role="status"
       aria-label="Priority: Routine"
-      className={cn('text-muted-foreground text-xs font-mono inline-flex items-center gap-1', className)}
+      className={cn('text-muted-foreground text-xs font-medium inline-flex items-center gap-1', className)}
     >
       <span className="h-1 w-1 rounded-full bg-muted-foreground/50 shrink-0" aria-hidden="true" />
       <span>Routine</span>

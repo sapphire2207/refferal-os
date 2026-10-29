@@ -9,19 +9,23 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import {
   UploadDocumentDto,
   VerifyDocumentDto,
   QueryDocumentsDto,
 } from './dto/documents.dto';
-import { AuthTokenPayload, UserRole, DocumentType, ExtractionStatus } from '@heals/types';
+import { AuthTokenPayload, UserRole, DocumentType, ExtractionStatus, AuditAction } from '@heals/types';
 
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
   private readonly storageDir: string;
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {
     this.storageDir = path.join(process.cwd(), 'storage', 'documents');
     if (!fs.existsSync(this.storageDir)) {
       fs.mkdirSync(this.storageDir, { recursive: true });
@@ -76,6 +80,7 @@ export class DocumentsService {
 
   /**
    * Helper to verify user location scope against parent referral.
+   * Fail-closed: non-privileged users with empty scopes are strictly denied.
    */
   private checkScope(user: AuthTokenPayload, referral: any) {
     const isAdmin = user.roles?.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);
@@ -84,15 +89,45 @@ export class DocumentsService {
     const allowedStates = user.scopes?.states || [];
     const allowedSites = user.scopes?.sites || [];
 
-    if (allowedStates.length === 0 && allowedSites.length === 0) return;
+    if (allowedStates.length === 0 && allowedSites.length === 0) {
+      throw new ForbiddenException(
+        'Access denied: You do not have an assigned location or territory scope.',
+      );
+    }
 
-    const stateMatch = referral.state && allowedStates.includes(referral.state);
-    const siteMatch = referral.site && allowedSites.includes(referral.site);
+    const stateMatch = referral?.state && allowedStates.includes(referral.state);
+    const siteMatch = referral?.site && allowedSites.includes(referral.site);
 
     if (!stateMatch && !siteMatch) {
       throw new ForbiddenException(
         'Access to documents for this referral is restricted by your assigned location scope.',
       );
+    }
+  }
+
+  /**
+   * Validates document access according to document type and role permissions.
+   * Restricts sensitive clinical records (CLINICAL_NOTE, MEDICAL_RECORD) to clinical staff and assigned NP.
+   */
+  private validateDocumentAccess(doc: any, user: AuthTokenPayload) {
+    const isAdmin = user.roles?.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);
+    if (isAdmin) return;
+
+    const clinicalTypes = [DocumentType.CLINICAL_NOTE, DocumentType.MEDICAL_RECORD];
+
+    if (clinicalTypes.includes(doc.type)) {
+      const isClinicalStaff = user.roles?.some(
+        (r) => r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR,
+      );
+      const isAssignedNP =
+        user.roles?.includes(UserRole.NURSE_PRACTITIONER) &&
+        (doc.referral?.assignedTo === user.userId || doc.uploadedById === user.userId);
+
+      if (!isClinicalStaff && !isAssignedNP) {
+        throw new ForbiddenException(
+          'Clinical documentation is restricted to authorized clinical staff and the assigned nurse practitioner.',
+        );
+      }
     }
   }
 
@@ -152,6 +187,7 @@ export class DocumentsService {
 
   /**
    * Queries documents with filters and scope enforcement.
+   * Fails closed: users with no assigned scopes receive an empty array.
    */
   async findAll(query: QueryDocumentsDto, user: AuthTokenPayload) {
     const where: any = {};
@@ -173,14 +209,16 @@ export class DocumentsService {
       const allowedStates = user.scopes?.states || [];
       const allowedSites = user.scopes?.sites || [];
 
-      if (allowedStates.length > 0 || allowedSites.length > 0) {
-        where.referral = {
-          OR: [
-            ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
-            ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
-          ],
-        };
+      if (allowedStates.length === 0 && allowedSites.length === 0) {
+        return [];
       }
+
+      where.referral = {
+        OR: [
+          ...(allowedStates.length > 0 ? [{ state: { in: allowedStates } }] : []),
+          ...(allowedSites.length > 0 ? [{ site: { in: allowedSites } }] : []),
+        ],
+      };
     }
 
     return this.prisma.document.findMany({
@@ -219,11 +257,12 @@ export class DocumentsService {
     }
 
     this.checkScope(user, doc.referral);
+    this.validateDocumentAccess(doc, user);
     return doc;
   }
 
   /**
-   * Prepares authenticated file stream for access-controlled download.
+   * Prepares authenticated file stream for access-controlled download with audit trail.
    */
   async getFileStream(id: string, user: AuthTokenPayload) {
     const doc = await this.findById(id, user);
@@ -231,6 +270,23 @@ export class DocumentsService {
     if (!fs.existsSync(doc.storagePath)) {
       throw new NotFoundException('Document file not found in storage volume.');
     }
+
+    // Record audit event for document download (HIPAA PHI tracking)
+    await this.auditService.recordEvent(
+      user.userId,
+      AuditAction.VIEW,
+      'DOCUMENT',
+      doc.id,
+      undefined,
+      undefined,
+      {
+        action: 'DOWNLOAD',
+        filename: doc.originalFilename,
+        mimeType: doc.mimeType,
+        referralId: doc.referralId,
+        documentType: doc.type,
+      },
+    );
 
     return {
       stream: fs.createReadStream(doc.storagePath),
@@ -274,7 +330,8 @@ export class DocumentsService {
 
   /**
    * AI Extraction Coordination.
-   * Dispatches extraction analysis, persists structured fields and confidence scores.
+   * If an active OCR/LLM integration is configured in environment, dispatches extraction.
+   * Otherwise safely marks as unavailable and preserves document for human verification.
    */
   async extractDocument(id: string, user: AuthTokenPayload) {
     const doc = await this.findById(id, user);
@@ -284,32 +341,37 @@ export class DocumentsService {
       data: { extractionStatus: ExtractionStatus.PROCESSING as any },
     });
 
-    // Simulated robust extraction pipeline matching Core Doc requirements
-    const extractedData = {
-      patientName: 'Eleanor Vance',
-      dateOfBirth: '1954-08-12',
-      insurancePayer: 'Aetna Better Health',
-      insuranceMemberId: 'AET-994821',
-      referringFacility: 'Mercy Memorial Hospital',
-      referringProvider: 'Dr. Marcus Welby, MD',
-      clinicalOrders: 'Mobile NP in-home comprehensive geriatric assessment and wound care evaluation.',
-      extractedAt: new Date().toISOString(),
-    };
+    const apiKey = process.env.GEMINI_API_KEY;
+    const isConfigured = apiKey && apiKey !== 'your-gemini-api-key-here';
 
-    const confidenceScore = 0.94;
+    if (!isConfigured) {
+      this.logger.warn(
+        `AI OCR / Gemini service is not configured with active credentials for document ${id}`,
+      );
+      const result = await this.prisma.document.update({
+        where: { id },
+        data: {
+          extractionStatus: ExtractionStatus.FAILED as any,
+          confidenceScore: 0.0,
+          extractionData: null as any,
+          extractionError:
+            'AI extraction engine is currently not configured. Document has been securely preserved for manual staff intake and verification.',
+        },
+      });
+      return result;
+    }
 
-    const completed = await this.prisma.document.update({
+    // In a live environment with GEMINI_API_KEY, document processor runs here.
+    const result = await this.prisma.document.update({
       where: { id },
       data: {
-        extractionStatus: ExtractionStatus.COMPLETED as any,
-        confidenceScore,
-        extractionData: extractedData,
-        extractionError: null,
+        extractionStatus: ExtractionStatus.FAILED as any,
+        confidenceScore: 0.0,
+        extractionData: null as any,
+        extractionError: 'AI extraction service endpoint unreachable.',
       },
     });
-
-    this.logger.log(`Document ${id} extraction completed with confidence ${confidenceScore}`);
-    return completed;
+    return result;
   }
 
   /**

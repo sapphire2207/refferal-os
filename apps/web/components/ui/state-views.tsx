@@ -25,16 +25,16 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-dashed border-zinc-200 bg-white/50 p-8 text-center animate-in fade-in-50",
+        "flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/40 p-8 text-center animate-in fade-in-50",
         className
       )}
     >
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 mb-3.5 ring-4 ring-zinc-50">
-        <Icon className="h-6 w-6 stroke-[1.75]" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground mb-3 ring-1 ring-border/60">
+        <Icon className="h-5 w-5 stroke-[1.75]" />
       </div>
-      <h3 className="text-sm font-semibold text-zinc-900">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {description && (
-        <p className="mt-1 max-w-sm text-xs text-zinc-500 leading-relaxed">
+        <p className="mt-1 max-w-sm text-xs text-muted-foreground leading-relaxed">
           {description}
         </p>
       )}
@@ -43,7 +43,7 @@ export function EmptyState({
           onClick={onAction}
           variant="outline"
           size="sm"
-          className="mt-4 h-8 text-xs font-medium border-zinc-200 shadow-none hover:bg-zinc-50"
+          className="mt-4 h-8 text-xs font-medium border-border hover:bg-accent"
         >
           {actionLabel}
         </Button>
@@ -65,12 +65,12 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-lg border border-zinc-100 bg-white p-8 text-center",
+        "flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-lg border border-border/60 bg-card/30 p-8 text-center",
         className
       )}
     >
-      <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
-      <p className="text-xs font-medium text-zinc-500 tracking-tight">{message}</p>
+      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      <p className="text-xs font-medium text-muted-foreground tracking-tight">{message}</p>
     </div>
   )
 }
@@ -91,16 +91,16 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex min-h-[260px] flex-col items-center justify-center rounded-lg border border-red-200/80 bg-red-50/30 p-8 text-center",
+        "flex min-h-[240px] flex-col items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center",
         className
       )}
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 mb-3">
-        <AlertCircle className="h-5 w-5 stroke-[2]" />
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive mb-3 ring-1 ring-destructive/20">
+        <AlertCircle className="h-4 w-4 stroke-[2]" />
       </div>
-      <h3 className="text-sm font-semibold text-red-950">{title}</h3>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {message && (
-        <p className="mt-1 max-w-md text-xs text-red-700/80 leading-relaxed">
+        <p className="mt-1 max-w-md text-xs text-muted-foreground leading-relaxed">
           {message}
         </p>
       )}
@@ -109,7 +109,7 @@ export function ErrorState({
           onClick={onRetry}
           variant="outline"
           size="sm"
-          className="mt-4 h-8 text-xs border-red-200 text-red-800 hover:bg-red-100/50"
+          className="mt-4 h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10 font-medium"
         >
           Try Again
         </Button>

@@ -200,6 +200,11 @@ export class QueryReferralsDto {
   @IsEnum(PipelineStage)
   pipelineStage?: PipelineStage;
 
+  @ApiPropertyOptional({ enum: PipelineStage, description: 'Filter by current pipeline stage (alias for pipelineStage)' })
+  @IsOptional()
+  @IsEnum(PipelineStage)
+  stage?: PipelineStage;
+
   @ApiPropertyOptional({ enum: WorkStatus, description: 'Filter by operational work status' })
   @IsOptional()
   @IsEnum(WorkStatus)

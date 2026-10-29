@@ -7,6 +7,7 @@ import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
 import { DashboardDataTable } from './dashboard-data-table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { MetricCard } from '@/components/ui/metric-card';
 import {
   Plus,
@@ -14,6 +15,9 @@ import {
   Stethoscope,
   Inbox,
   Layers,
+  RefreshCw,
+  AlertTriangle,
+  ArrowRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -78,7 +82,12 @@ export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<'3m' | '30d' | '7d'>('30d');
 
   // 1. Fetch real dashboard metrics
-  const { data: metrics } = useQuery<DashboardMetricsResponse>({
+  const {
+    data: metrics,
+    isLoading: isMetricsLoading,
+    isFetching: isFetchingMetrics,
+    refetch: refetchMetrics,
+  } = useQuery<DashboardMetricsResponse>({
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
       return apiClient.get<DashboardMetricsResponse>('/referrals/dashboard/metrics');
@@ -87,7 +96,12 @@ export default function DashboardPage() {
   });
 
   // 2. Fetch referrals from real backend API
-  const { data: referralsRes, isLoading: isReferralsLoading } = useQuery<{
+  const {
+    data: referralsRes,
+    isLoading: isReferralsLoading,
+    isFetching: isFetchingReferrals,
+    refetch: refetchReferrals,
+  } = useQuery<{
     data: ReferralRecord[];
     total: number;
   }>({
@@ -97,6 +111,18 @@ export default function DashboardPage() {
     },
     staleTime: 30 * 1000,
   });
+
+  const isRefreshing = isFetchingMetrics || isFetchingReferrals;
+  const handleRefresh = () => {
+    refetchMetrics();
+    refetchReferrals();
+  };
+
+  const chartData = useMemo(() => {
+    if (timeRange === '7d') return CHART_DATA_30_DAYS.slice(-4);
+    if (timeRange === '30d') return CHART_DATA_30_DAYS.slice(-8);
+    return CHART_DATA_30_DAYS;
+  }, [timeRange]);
 
   const allReferrals = useMemo(() => extractApiList<ReferralRecord>(referralsRes), [referralsRes]);
 
@@ -150,6 +176,16 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="h-8 gap-1.5 text-xs font-medium border-border/80 bg-background hover:bg-muted/60 shadow-2xs"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </Button>
             <Link
               href="/referrals/new"
               className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-xs hover:bg-primary/90 transition-all focus-visible:ring-2 focus-visible:ring-primary/40 select-none"
@@ -160,6 +196,33 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Priority Alert Banner: High-urgency triage prompt */}
+        {urgentCount > 0 && (
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-900 dark:text-rose-200 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                <AlertTriangle className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  Action Required: {urgentCount} Urgent / STAT Patient Case{urgentCount === 1 ? '' : 's'}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  High-priority clinical intakes require review and provider assignment within 2-hour clinical turnaround SLAs.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('URGENT')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors shadow-2xs shrink-0"
+            >
+              <span>View Urgent Queue</span>
+              <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
         {/* ROW 1: 4 Key Metric Cards (Top-Tier SaaS Visual Hierarchy) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
@@ -169,6 +232,7 @@ export default function DashboardPage() {
             isPositive={true}
             icon={Layers}
             accentColor="blue"
+            isLoading={isMetricsLoading && !metrics}
             subtext="Active across authorized scope"
           />
 
@@ -179,6 +243,7 @@ export default function DashboardPage() {
             isPositive={false}
             icon={Inbox}
             accentColor="amber"
+            isLoading={isMetricsLoading && !metrics}
             subtext="Awaiting insurance & eligibility triage"
           />
 
@@ -189,6 +254,7 @@ export default function DashboardPage() {
             isPositive={true}
             icon={Stethoscope}
             accentColor="purple"
+            isLoading={isMetricsLoading && !metrics}
             subtext="Determination SLA turnaround < 24h"
           />
 
@@ -199,6 +265,7 @@ export default function DashboardPage() {
             isPositive={true}
             icon={Calendar}
             accentColor="emerald"
+            isLoading={isMetricsLoading && !metrics}
             subtext="Encounter bookings on schedule"
           />
         </div>
@@ -211,7 +278,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-base font-semibold tracking-tight text-foreground">
                   Referral Volume & Clinical Transition Velocity
                 </CardTitle>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-mono font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                   92.4% SLA Fulfillment
                 </span>
               </div>
@@ -271,7 +338,7 @@ export default function DashboardPage() {
                   <span>Completed Encounters</span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
+              <span className="text-[11px] font-medium text-muted-foreground hidden sm:inline">
                 Avg. Triage Turnaround: 18.4h
               </span>
             </div>
@@ -279,7 +346,7 @@ export default function DashboardPage() {
             <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={CHART_DATA_30_DAYS}
+                  data={chartData}
                   margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
                 >
                   <defs>
@@ -300,22 +367,27 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 11, fill: 'currentColor' }}
-                    className="text-muted-foreground font-mono"
+                    className="text-muted-foreground font-medium"
                     dy={10}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 11, fill: 'currentColor' }}
-                    className="text-muted-foreground font-mono"
+                    className="text-muted-foreground font-medium"
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'var(--popover)',
-                      borderColor: 'var(--border)',
+                      backgroundColor: 'hsl(var(--popover))',
+                      borderColor: 'hsl(var(--border))',
                       borderRadius: '10px',
                       fontSize: '12px',
                       boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    }}
+                    labelStyle={{
+                      color: 'hsl(var(--foreground))',
+                      fontWeight: 600,
+                      marginBottom: '4px',
                     }}
                     formatter={(value: any, name: any) => [
                       <span className="font-semibold text-foreground tabular-nums" key="val">{value} cases</span>,

@@ -164,18 +164,18 @@ export function LoginForm() {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       {/* Left Column: Clinical Sign-In Card */}
       <div className="lg:col-span-5 space-y-4">
-        <Card className="border border-border/80 shadow-md bg-card">
+        <Card className="border border-border/80 shadow-xs bg-card rounded-lg">
           <CardHeader className="text-center pb-4">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-black text-white dark:bg-white dark:text-black shadow-sm">
-              <span className="font-extrabold text-base tracking-wider">H+W</span>
+            <div className="mx-auto mb-2.5 flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-background shadow-2xs">
+              <span className="font-bold text-xs tracking-wider">H+W</span>
             </div>
-            <CardTitle className="text-2xl font-bold tracking-tight">
+            <CardTitle className="text-lg font-bold tracking-tight text-foreground">
               {isMfaStep ? 'Two-Factor Verification' : 'Clinical Portal Sign In'}
             </CardTitle>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs text-muted-foreground mt-0.5">
               {isMfaStep
                 ? 'Enter the 6-digit verification code from your authenticator app'
-                : 'Heals on Wheels Referral Operating System'}
+                : 'Heals on Wheels Healthcare Operations Platform'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -212,7 +212,7 @@ export function LoginForm() {
                       <button
                         type="button"
                         onClick={copyPasswordToClipboard}
-                        className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 font-mono transition-colors"
+                        className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium transition-colors"
                       >
                         {copiedPassword ? (
                           <Check className="h-3 w-3 text-emerald-600" />
@@ -231,7 +231,7 @@ export function LoginForm() {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       disabled={isLoading || !!activeSigningEmail}
-                      className="h-9 text-sm font-mono"
+                      className="h-9 text-sm font-medium"
                     />
                   </div>
                 </>
@@ -303,28 +303,28 @@ export function LoginForm() {
             <div className="pt-2 border-t border-border/50 text-center">
               <span className="text-[11px] text-muted-foreground">
                 All accounts share password:{' '}
-                <strong className="font-mono text-foreground">Admin@2024!</strong>
+                <strong className="font-semibold text-foreground">Admin@2024!</strong>
               </span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Right Column: ⚡ 1-Click Persona Quick Logins */}
+      {/* Right Column: Authorized Persona Switcher */}
       <div className="lg:col-span-7 space-y-3">
-        <Card className="border border-border/80 shadow-md bg-card">
-          <CardHeader className="py-3 px-4 border-b border-border/60 bg-muted/30">
+        <Card className="border border-border/80 shadow-xs bg-card rounded-lg">
+          <CardHeader className="py-3 px-4 border-b border-border/60 bg-muted/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
-                  <Zap className="h-3.5 w-3.5 fill-amber-500" />
+                <div className="flex h-6 w-6 items-center justify-center rounded-md border border-border/80 bg-background text-foreground">
+                  <UserCheck className="h-3.5 w-3.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                    ⚡ Instant 1-Click Test Logins
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                    Authorized Persona Switcher
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
-                    Click any role below to enter its workspace instantly
+                    Select a staff account to sign in directly into its operational queue
                   </p>
                 </div>
               </div>
@@ -333,14 +333,14 @@ export function LoginForm() {
                 variant="outline"
                 size="sm"
                 onClick={copyPasswordToClipboard}
-                className="h-7 text-[11px] font-mono gap-1.5 px-2.5 bg-background shadow-xs hover:bg-muted"
+                className="h-7 text-xs font-medium gap-1.5 px-2 bg-background shadow-2xs hover:bg-muted/60"
               >
                 {copiedPassword ? (
                   <Check className="h-3 w-3 text-emerald-600" />
                 ) : (
                   <Copy className="h-3 w-3" />
                 )}
-                <span>PW: Admin@2024!</span>
+                <span>Admin@2024!</span>
               </Button>
             </div>
           </CardHeader>
@@ -368,14 +368,14 @@ export function LoginForm() {
                           variant="outline"
                           className={`text-[9px] px-1.5 py-0 font-medium ${
                             persona.tag === 'Multi-Role'
-                              ? 'border-indigo-500/40 bg-indigo-50/50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                              : 'border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-400'
+                              ? 'border-border bg-muted text-foreground'
+                              : 'border-border text-muted-foreground'
                           }`}
                         >
                           {persona.roleTitle}
                         </Badge>
                       </div>
-                      <div className="text-[11px] font-mono text-muted-foreground truncate">
+                      <div className="text-[11px] font-medium text-muted-foreground truncate">
                         {persona.email}
                       </div>
                       <div className="text-[10px] text-muted-foreground/80 mt-0.5 line-clamp-1">

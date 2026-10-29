@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { flexRender } from '@tanstack/react-table';
 import {
   useLegacyTable,
@@ -107,6 +108,7 @@ export function DashboardDataTable({
   setActiveTab,
   counts,
 }: DashboardDataTableProps) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
@@ -177,7 +179,7 @@ export function DashboardDataTable({
                 >
                   {r.patient?.firstName} {r.patient?.lastName}
                 </Link>
-                <div className="flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground mt-0.5 tabular-nums">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mt-0.5 tabular-nums">
                   <span>{mrn}</span>
                   <span>•</span>
                   <span className="text-muted-foreground/80">{r.trackingNumber}</span>
@@ -220,7 +222,7 @@ export function DashboardDataTable({
         accessorKey: 'site',
         header: 'Site Scope',
         cell: ({ row }) => (
-          <span className="text-[11px] font-mono text-muted-foreground uppercase">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase">
             {row.original.site}
           </span>
         ),
@@ -446,9 +448,9 @@ export function DashboardDataTable({
         </div>
 
         {/* Right Controls: Search, Customize Columns */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Global Search Input */}
-          <div className="relative min-w-[200px] max-w-[260px]">
+          <div className="relative w-full sm:w-auto min-w-0 sm:min-w-[200px] sm:max-w-[260px]">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
@@ -559,14 +561,43 @@ export function DashboardDataTable({
           </TableHeader>
           <TableBody className="divide-y divide-border/60 bg-card">
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
-                  <div className="flex items-center justify-center gap-2">
-                    <Clock className="h-4 w-4 animate-spin" />
-                    <span>Loading active cases...</span>
-                  </div>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`} className="animate-pulse">
+                  <TableCell className="py-3 px-3.5 pl-4">
+                    <div className="h-4 w-4 bg-muted/70 rounded" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-full bg-muted/70 shrink-0" />
+                      <div className="space-y-1.5 flex-1">
+                        <div className="h-3.5 w-32 bg-muted/70 rounded" />
+                        <div className="h-2.5 w-24 bg-muted/50 rounded" />
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-5 w-20 bg-muted/60 rounded-full" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-5 w-24 bg-muted/60 rounded-full" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-5 w-16 bg-muted/60 rounded-full" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-3.5 w-28 bg-muted/50 rounded" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-3 w-16 bg-muted/40 rounded" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5">
+                    <div className="h-6 w-24 bg-muted/40 rounded-md" />
+                  </TableCell>
+                  <TableCell className="py-3 px-3.5 text-right">
+                    <div className="h-7 w-7 bg-muted/50 rounded ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="py-12 text-center text-muted-foreground">
@@ -582,7 +613,20 @@ export function DashboardDataTable({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="hover:bg-muted/40 transition-colors group"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (
+                      target.closest('button') ||
+                      target.closest('input') ||
+                      target.closest('a') ||
+                      target.closest('[role="menuitem"]') ||
+                      target.closest('[role="checkbox"]')
+                    ) {
+                      return;
+                    }
+                    router.push(`/referrals/${row.original.id}`);
+                  }}
+                  className="hover:bg-muted/40 transition-colors group cursor-pointer"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-3 px-3.5 align-middle">
@@ -603,7 +647,7 @@ export function DashboardDataTable({
           {table.getFilteredRowModel().rows.length} row(s) selected.
         </div>
 
-        <div className="flex items-center gap-6 self-end sm:self-auto">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6 self-start sm:self-auto">
           {/* Rows per page selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground whitespace-nowrap">Rows per page</span>
