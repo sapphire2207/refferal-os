@@ -76,14 +76,6 @@ export function SiteHeader({ title }: { title?: string }) {
 
       {/* Right: HIPAA Live Beacon, Workspace Switcher, Notifications, User Menu */}
       <div className="flex items-center gap-3">
-        <div
-          className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
-          title="Authoritative End-to-End HIPAA Encrypted Session"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-subtle" aria-hidden="true" />
-          <ShieldCheck className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-          <span>HIPAA Encrypted</span>
-        </div>
 
         <WorkspaceSwitcher />
 

@@ -27,6 +27,7 @@ import {
   Receipt,
   User,
   Shield,
+  ShieldAlert,
   Stethoscope,
   Download,
   Trash2,
@@ -121,13 +122,15 @@ export default function ReferralDetailPage() {
       apiClient.post('/clinical-review', {
         referralId: id,
         decision: reviewDecision,
-        notes: reviewNotes,
+        reason: reviewNotes.trim() || (reviewDecision === ClinicalReviewDecision.ACCEPT ? 'Clinical criteria satisfied' : undefined),
+        notes: reviewNotes.trim() || undefined,
       }),
     onSuccess: () => {
       toast.success(`Clinical Review recorded: ${reviewDecision}`);
       setReviewNotes('');
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     },
     onError: (err: any) => {
       toast.error('Review Decision Failed', { description: err.message });
@@ -348,25 +351,7 @@ export default function ReferralDetailPage() {
                     title={canTransitionStage(PipelineStage.INTAKE, PipelineStage.CLINICAL_REVIEW, user?.roles) ? 'Advance referral' : 'Your role cannot transition referrals out of Intake'}
                     className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
-                    <span>Advance to Clinical Review</span>
-                    <ArrowRight className="h-3 w-3" />
-                  </Button>
-                )}
-
-                {referral.pipelineStage === PipelineStage.CLINICAL_REVIEW && (
-                  <Button
-                    size="sm"
-                    onClick={() =>
-                      transitionMutation.mutate({
-                        targetStage: PipelineStage.SCHEDULING,
-                        reason: 'Clinical acceptance criteria met',
-                      })
-                    }
-                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.CLINICAL_REVIEW, PipelineStage.SCHEDULING, user?.roles)}
-                    title={canTransitionStage(PipelineStage.CLINICAL_REVIEW, PipelineStage.SCHEDULING, user?.roles) ? 'Accept and move to scheduling' : 'Requires Clinical Reviewer credentials'}
-                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
-                  >
-                    <span>Accept & Move to Scheduling</span>
+                    <span>Submit Intake & Advance to Clinical Review</span>
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                 )}
@@ -427,35 +412,116 @@ export default function ReferralDetailPage() {
               </div>
             </div>
 
-            {/* Clinical Review Decision Block if in CLINICAL_REVIEW */}
+            {/* Authoritative Clinical Review Decision Block if in CLINICAL_REVIEW */}
             {referral.pipelineStage === PipelineStage.CLINICAL_REVIEW && (
-              <div className="pt-3 border-t border-border/50">
-                <span className="text-xs font-semibold text-foreground block mb-2">
-                  Record Formal Clinical Review Decision
-                </span>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <Select
-                    value={reviewDecision}
-                    onValueChange={(val) => val && setReviewDecision(val as ClinicalReviewDecision)}
+              <div className="pt-4 border-t border-border/60 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Stethoscope className="h-3.5 w-3.5 text-primary" />
+                      Formal Clinical Review Determination
+                    </span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Assess medical necessity, clinical orders, and eligibility. Select an authoritative decision path:
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] uppercase font-semibold border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 self-start sm:self-auto">
+                    Clinical Action Required
+                  </Badge>
+                </div>
+
+                {/* 3 Clear Determination Paths */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision(ClinicalReviewDecision.ACCEPT)}
+                    className={cn(
+                      'flex flex-col text-left p-3 rounded-lg border transition-all cursor-pointer',
+                      reviewDecision === ClinicalReviewDecision.ACCEPT
+                        ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/40'
+                        : 'border-border/80 bg-background hover:bg-muted/40'
+                    )}
                   >
-                    <SelectTrigger className="h-8 w-full sm:w-[260px] text-xs bg-background">
-                      <SelectValue placeholder="Select determination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ClinicalReviewDecision.ACCEPT}>ACCEPT (Criteria Satisfied)</SelectItem>
-                      <SelectItem value={ClinicalReviewDecision.RETURN}>RETURN (Missing Clinical Order)</SelectItem>
-                      <SelectItem value={ClinicalReviewDecision.REJECT}>REJECT (Ineligible / Out of Service)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle className="h-3.5 w-3.5" /> Accept (Forward)
+                      </span>
+                      <ArrowRight className="h-3 w-3 text-emerald-600" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Clinical criteria satisfied. Advances case to <strong>Scheduling</strong> queue.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision(ClinicalReviewDecision.RETURN)}
+                    className={cn(
+                      'flex flex-col text-left p-3 rounded-lg border transition-all cursor-pointer',
+                      reviewDecision === ClinicalReviewDecision.RETURN
+                        ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500/40'
+                        : 'border-border/80 bg-background hover:bg-muted/40'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                        <RotateCcw className="h-3.5 w-3.5" /> Return (Backward)
+                      </span>
+                      <ArrowLeft className="h-3 w-3 text-amber-600" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Missing clinical order or notes. Returns case to <strong>Intake</strong> for provider follow-up.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision(ClinicalReviewDecision.REJECT)}
+                    className={cn(
+                      'flex flex-col text-left p-3 rounded-lg border transition-all cursor-pointer',
+                      reviewDecision === ClinicalReviewDecision.REJECT
+                        ? 'border-rose-500 bg-rose-500/10 shadow-xs ring-1 ring-rose-500/40'
+                        : 'border-border/80 bg-background hover:bg-muted/40'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1">
+                        <XCircle className="h-3.5 w-3.5" /> Reject (Decline)
+                      </span>
+                      <ShieldAlert className="h-3 w-3 text-rose-600" />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Out of service area or ineligible. Records terminal discharge outcome.
+                    </p>
+                  </button>
+                </div>
+
+                {/* Justification Input & Action Button */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
                   <Input
-                    placeholder="Enter clinical rationale or notes…"
+                    placeholder={
+                      reviewDecision === ClinicalReviewDecision.ACCEPT
+                        ? 'Enter clinical acceptance justification or care plan notes (optional)…'
+                        : reviewDecision === ClinicalReviewDecision.RETURN
+                        ? 'Mandatory: specify what clinical order or document Intake must obtain…'
+                        : 'Mandatory: document medical ineligibility or service area rationale…'
+                    }
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
-                    className="h-8 text-xs flex-1"
+                    className="h-8.5 text-xs flex-1 bg-background"
                   />
                   <Button
                     size="sm"
                     onClick={() => {
+                      if (
+                        (reviewDecision === ClinicalReviewDecision.RETURN || reviewDecision === ClinicalReviewDecision.REJECT) &&
+                        !reviewNotes.trim()
+                      ) {
+                        toast.error('Clinical Rationale Required', {
+                          description: `A documented reason is mandatory when choosing to ${reviewDecision.toLowerCase()} this referral.`,
+                        });
+                        return;
+                      }
                       if (reviewDecision === ClinicalReviewDecision.REJECT) {
                         setShowRejectConfirm(true);
                         return;
@@ -463,16 +529,46 @@ export default function ReferralDetailPage() {
                       reviewMutation.mutate();
                     }}
                     disabled={reviewMutation.isPending || !user?.roles?.some((r) => r === 'CLINICAL_REVIEWER' || r === 'CLINICAL_COORDINATOR' || r === 'ADMIN')}
-                    title={user?.roles?.some((r) => r === 'CLINICAL_REVIEWER' || r === 'CLINICAL_COORDINATOR' || r === 'ADMIN') ? 'Submit clinical determination' : 'Requires Clinical Reviewer credentials'}
-                    className="h-8 text-xs px-3 disabled:opacity-40"
+                    title={user?.roles?.some((r) => r === 'CLINICAL_REVIEWER' || r === 'CLINICAL_COORDINATOR' || r === 'ADMIN') ? 'Commit clinical determination' : 'Requires Clinical Reviewer credentials'}
+                    className={cn(
+                      'h-8.5 text-xs px-4 font-semibold shrink-0 gap-1.5 shadow-xs disabled:opacity-40 cursor-pointer',
+                      reviewDecision === ClinicalReviewDecision.ACCEPT && 'bg-emerald-600 hover:bg-emerald-700 text-white',
+                      reviewDecision === ClinicalReviewDecision.RETURN && 'bg-amber-600 hover:bg-amber-700 text-white',
+                      reviewDecision === ClinicalReviewDecision.REJECT && 'bg-rose-600 hover:bg-rose-700 text-white'
+                    )}
                   >
-                    Submit Decision
+                    {reviewMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    <span>
+                      Submit {reviewDecision === ClinicalReviewDecision.ACCEPT ? 'Acceptance' : reviewDecision === ClinicalReviewDecision.RETURN ? 'Return to Intake' : 'Rejection'}
+                    </span>
                   </Button>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Data Locking & Status Banner */}
+        {referral.pipelineStage !== PipelineStage.INTAKE ? (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/80 bg-muted/30 text-xs">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary shrink-0" />
+              <span>
+                <strong>Intake Baseline Locked:</strong> Patient demographics, payer details, and initial referral documentation are locked while this referral is in <strong>{referral.pipelineStage.replace('_', ' ')}</strong>. To edit intake details, the clinical reviewer must return the case to Intake.
+              </span>
+            </div>
+            <span className="text-[10px] uppercase font-semibold text-muted-foreground px-2 py-0.5 rounded bg-background border border-border shrink-0">
+              Read-Only Protected
+            </span>
+          </div>
+        ) : referral.workStatus === WorkStatus.BLOCKED_NEEDS_INFO ? (
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Intake Action Required:</strong> This referral is flagged as Needs Info / Returned from Clinical Review. Please attach the required clinical order or clarify payer coverage before re-advancing.
+            </span>
+          </div>
+        ) : null}
 
         {/* Tabbed Detail Sections */}
         <Tabs defaultValue="overview" className="w-full">

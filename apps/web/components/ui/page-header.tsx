@@ -31,6 +31,7 @@ export function PageHeader({
               variant="ghost"
               size="sm"
               className="-ml-2 h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+              nativeButton={false}
               render={<Link href={backHref} />}
             >
               <ChevronLeft className="h-3.5 w-3.5" />

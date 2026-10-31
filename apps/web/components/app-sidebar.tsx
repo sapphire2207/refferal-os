@@ -13,11 +13,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuBadge,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
+import { PipelineStage, UserRole } from '@heals/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +52,6 @@ import {
   Activity,
   Layers,
 } from 'lucide-react';
-import { UserRole } from '@heals/types';
 import { cn } from '@/lib/utils';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -68,6 +71,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'HW'
     : 'HW';
 
+  // Live operational metrics for sidebar badge indicators
+  const { data: metrics } = useQuery<{
+    totalActive: number;
+    byStage: Record<PipelineStage, number>;
+  }>({
+    queryKey: ['dashboard-metrics'],
+    queryFn: () => apiClient.get('/referrals/dashboard/metrics'),
+    staleTime: 30 * 1000,
+  });
+
+  const isClinician =
+    userRoles.includes(UserRole.CLINICAL_REVIEWER) ||
+    userRoles.includes(UserRole.CLINICAL_COORDINATOR);
+  const isIntake = userRoles.includes(UserRole.INTAKE_SPECIALIST);
+
+  const clinicalReviewCount = metrics?.byStage?.[PipelineStage.CLINICAL_REVIEW] ?? 0;
+  const intakeCount = metrics?.byStage?.[PipelineStage.INTAKE] ?? 0;
+  const schedulingCount = metrics?.byStage?.[PipelineStage.SCHEDULING] ?? 0;
+  const npVisitCount = metrics?.byStage?.[PipelineStage.NP_VISIT] ?? 0;
+  const notesQaCount = metrics?.byStage?.[PipelineStage.NOTES_QA] ?? 0;
+  const billingCount = metrics?.byStage?.[PipelineStage.BILLING] ?? 0;
+
+  // Pipeline badge: prioritize clinical review queue for clinicians, intake for intake staff
+  let pipelineBadge: number | undefined;
+  let pipelineBadgeClass = 'bg-muted text-muted-foreground border-border/60';
+
+  if (isClinician && clinicalReviewCount > 0) {
+    pipelineBadge = clinicalReviewCount;
+    pipelineBadgeClass = 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold';
+  } else if (isIntake && intakeCount > 0) {
+    pipelineBadge = intakeCount;
+    pipelineBadgeClass = 'bg-primary/10 text-primary border border-primary/20 font-bold';
+  } else if (metrics?.totalActive && metrics.totalActive > 0) {
+    pipelineBadge = metrics.totalActive;
+  }
+
   // Core navigation items
   const mainNav = [
     {
@@ -81,6 +120,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: '/referrals',
       icon: Kanban,
       isActive: pathname.startsWith('/referrals') && pathname !== '/referrals/new',
+      badge: pipelineBadge,
+      badgeClassName: pipelineBadgeClass,
     },
     {
       title: 'Patients Directory',
@@ -97,6 +138,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: '/schedule',
       icon: Calendar,
       isActive: pathname.startsWith('/schedule'),
+      badge: schedulingCount > 0 ? schedulingCount : undefined,
+      badgeClassName: 'bg-muted text-muted-foreground border-border/60',
       show:
         isAdmin ||
         userRoles.includes(UserRole.SCHEDULER) ||
@@ -108,6 +151,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: '/visits',
       icon: Stethoscope,
       isActive: pathname.startsWith('/visits'),
+      badge: npVisitCount > 0 ? npVisitCount : undefined,
+      badgeClassName: 'bg-muted text-muted-foreground border-border/60',
       show:
         isAdmin ||
         userRoles.includes(UserRole.NURSE_PRACTITIONER) ||
@@ -118,6 +163,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: '/notes-review',
       icon: FileCheck2,
       isActive: pathname.startsWith('/notes-review'),
+      badge: notesQaCount > 0 ? notesQaCount : undefined,
+      badgeClassName: notesQaCount > 0 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold' : 'bg-muted text-muted-foreground border-border/60',
       show:
         isAdmin ||
         userRoles.includes(UserRole.CLINICAL_COORDINATOR) ||
@@ -129,6 +176,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       url: '/billing',
       icon: Receipt,
       isActive: pathname.startsWith('/billing'),
+      badge: billingCount > 0 ? billingCount : undefined,
+      badgeClassName: 'bg-muted text-muted-foreground border-border/60',
       show:
         isAdmin ||
         userRoles.includes(UserRole.BILLING_COORDINATOR) ||
@@ -221,6 +270,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <SidebarMenuBadge className={cn('text-[10px] font-semibold h-4.5 min-w-4.5 px-1.5 rounded-full border', item.badgeClassName)}>
+                      {item.badge}
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -251,6 +305,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                       <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                     </SidebarMenuButton>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <SidebarMenuBadge className={cn('text-[10px] font-semibold h-4.5 min-w-4.5 px-1.5 rounded-full border', item.badgeClassName)}>
+                        {item.badge}
+                      </SidebarMenuBadge>
+                    )}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
