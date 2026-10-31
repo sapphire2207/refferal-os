@@ -45,29 +45,6 @@ export default function UsersAdminPage() {
 
   const users = extractApiList<any>(data);
 
-  if (!isAdmin) {
-    return (
-      <AppLayout title="Access Restricted">
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-4">
-          <div className="p-3 bg-rose-500/10 text-rose-600 rounded-full">
-            <ShieldAlert className="h-8 w-8" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Access Restricted to Administrators</h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-md">
-              User provisioning, role assignments, and security configurations require System Administrator privileges.
-            </p>
-          </div>
-          <Link href="/dashboard">
-            <Button size="sm" variant="outline" className="text-xs">
-              Return to Dashboard
-            </Button>
-          </Link>
-        </div>
-      </AppLayout>
-    );
-  }
-
   // Invite User Mutation
   const inviteMutation = useMutation({
     mutationFn: () =>
@@ -116,6 +93,29 @@ export default function UsersAdminPage() {
       toast.error('Status Update Failed', { description: err.message });
     },
   });
+
+  if (!isAdmin) {
+    return (
+      <AppLayout title="Access Restricted">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6 space-y-4">
+          <div className="p-3 bg-rose-500/10 text-rose-600 rounded-full">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Access Restricted to Administrators</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-md">
+              User provisioning, role assignments, and security configurations require System Administrator privileges.
+            </p>
+          </div>
+          <Link href="/dashboard">
+            <Button size="sm" variant="outline" className="text-xs">
+              Return to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout title="User Management & Scopes">

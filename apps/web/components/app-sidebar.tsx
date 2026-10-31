@@ -157,8 +157,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" className="border-r border-border/80 bg-sidebar" {...props}>
       {/* Header: Company Brand */}
-      <SidebarHeader className="border-b border-border/80 px-3 py-3.5">
-        <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden group">
+      <SidebarHeader className="h-(--header-height) justify-center border-b border-border/80 px-3 group-data-[collapsible=icon]:px-0">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2.5 overflow-hidden group group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full"
+        >
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background shadow-2xs transition-transform duration-150 group-hover:scale-105">
             <Activity className="h-4 w-4" aria-hidden="true" />
           </div>
@@ -175,12 +178,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-3 space-y-4">
+      <SidebarContent className="px-2 py-3 space-y-4 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-2 group-data-[collapsible=icon]:space-y-2">
         {/* Quick Create Button */}
-        <div className="px-1">
+        <div className="px-1 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
           <Link
             href="/referrals/new"
-            className="flex items-center justify-between w-full h-9 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:text-primary-foreground text-xs font-semibold shadow-xs transition-all duration-150 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:mx-auto select-none"
+            className="flex items-center justify-between w-full h-9 px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:text-primary-foreground text-xs font-semibold shadow-xs transition-all duration-150 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center select-none"
             title="Create New Referral (N)"
           >
             <div className="flex items-center gap-2">
@@ -288,16 +291,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       {/* Footer: User Profile Card (Matching img1) */}
-      <SidebarFooter className="border-t border-border/80 p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
+      <SidebarFooter className="border-t border-border/80 p-2 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:py-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center">
+        <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+          <SidebarMenuItem className="group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
                   <SidebarMenuButton
                     size="lg"
                     tooltip={userName}
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground px-2 py-1.5"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground px-2 py-1.5 group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center"
                   />
                 }
               >

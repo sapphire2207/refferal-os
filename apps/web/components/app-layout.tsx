@@ -47,8 +47,8 @@ export function AppLayout({ children, title }: AppLayoutProps) {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
-      <SidebarInset className="bg-background min-w-0 max-w-full overflow-x-hidden">
+      <AppSidebar />
+      <SidebarInset className="bg-background min-w-0 max-w-full overflow-x-hidden md:peer-data-[variant=inset]:m-0 md:peer-data-[variant=inset]:rounded-none md:peer-data-[variant=inset]:shadow-none md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-0">
         <SiteHeader title={title} />
         <main className="flex-1 p-4 md:p-6 lg:p-8 w-full min-w-0 max-w-full">
           {children}

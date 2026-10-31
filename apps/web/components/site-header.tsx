@@ -15,11 +15,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
-import { LogOut, User as UserIcon, ShieldAlert, Search, ShieldCheck } from 'lucide-react';
+import { LogOut, User as UserIcon, ShieldAlert, Search, ShieldCheck, Sun, Moon } from 'lucide-react';
 
 export function SiteHeader({ title }: { title?: string }) {
   const { user, logout } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const initials = user
     ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'HW'
@@ -29,9 +36,9 @@ export function SiteHeader({ title }: { title?: string }) {
     <header className="flex h-(--header-height) shrink-0 items-center justify-between border-b border-border/80 bg-background/90 backdrop-blur-md px-4 lg:px-6 z-10 transition-[width,height] ease-linear">
       {/* Left: Sidebar trigger, divider, Title & Breadcrumb */}
       <div className="flex items-center gap-3">
-        <SidebarTrigger 
+        <SidebarTrigger
           aria-label="Toggle navigation sidebar"
-          className="-ml-1 h-8 w-8 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40" 
+          className="-ml-1 h-8 w-8 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
         />
         <Separator orientation="vertical" className="h-4 bg-border/60" />
         <div className="flex items-center gap-2">
@@ -69,7 +76,7 @@ export function SiteHeader({ title }: { title?: string }) {
 
       {/* Right: HIPAA Live Beacon, Workspace Switcher, Notifications, User Menu */}
       <div className="flex items-center gap-3">
-        <div 
+        <div
           className="hidden xl:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
           title="Authoritative End-to-End HIPAA Encrypted Session"
         >
@@ -81,6 +88,21 @@ export function SiteHeader({ title }: { title?: string }) {
         <WorkspaceSwitcher />
 
         <NotificationBell />
+
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={mounted && resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+          className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-foreground"
+        >
+          {mounted && resolvedTheme === 'dark' ? (
+            <Sun className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Moon className="h-4 w-4" aria-hidden="true" />
+          )}
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger
