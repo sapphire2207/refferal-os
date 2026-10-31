@@ -62,6 +62,12 @@ import {
   Layers,
   ArrowUpRight,
   MessageSquare,
+  Filter,
+  X,
+  Copy,
+  Check,
+  ChevronRight,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { PipelineStage, WorkStatus, Priority } from '@heals/types';
 import { toast } from 'sonner';
@@ -111,10 +117,18 @@ const STAGES: { stage: PipelineStage; label: string; icon: React.ElementType; co
 export default function ReferralsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+
+  // Default to 'table' (Data Table) as primary view
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
+
+  // High-power multi-field filters
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
+  const [siteFilter, setSiteFilter] = useState<string>('ALL');
+  const [quickTab, setQuickTab] = useState<'all' | 'intake' | 'clinical' | 'scheduling' | 'needs_info' | 'urgent'>('all');
+
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [selectedReferralForDrawer, setSelectedReferralForDrawer] = useState<ReferralRecord | null>(null);
   const [pendingRollback, setPendingRollback] = useState<{
@@ -134,16 +148,27 @@ export default function ReferralsPage() {
   // Debounce search query
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Fetch referrals from backend
+  // Fetch referrals from backend with high-power filters
   const { data, isLoading, refetch, isFetching } = useQuery<{
     data: ReferralRecord[];
     total: number;
   }>({
-    queryKey: ['referrals-pipeline', { pipelineStage: stageFilter, priority: priorityFilter, search: debouncedSearch }],
+    queryKey: [
+      'referrals-pipeline',
+      {
+        pipelineStage: stageFilter,
+        workStatus: statusFilter,
+        priority: priorityFilter,
+        site: siteFilter,
+        search: debouncedSearch,
+      },
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (stageFilter !== 'ALL') params.set('pipelineStage', stageFilter);
+      if (statusFilter !== 'ALL') params.set('workStatus', statusFilter);
       if (priorityFilter !== 'ALL') params.set('priority', priorityFilter);
+      if (siteFilter !== 'ALL') params.set('site', siteFilter);
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       params.set('limit', '100');
       return apiClient.get<{ data: ReferralRecord[]; total: number }>(`/referrals?${params.toString()}`);
@@ -152,6 +177,53 @@ export default function ReferralsPage() {
   });
 
   const referrals = useMemo(() => data?.data || [], [data]);
+
+  // Quick preset tab handler
+  const handleQuickTabSelect = (tab: typeof quickTab) => {
+    setQuickTab(tab);
+    if (tab === 'all') {
+      setStageFilter('ALL');
+      setStatusFilter('ALL');
+      setPriorityFilter('ALL');
+    } else if (tab === 'intake') {
+      setStageFilter(PipelineStage.INTAKE);
+      setStatusFilter('ALL');
+      setPriorityFilter('ALL');
+    } else if (tab === 'clinical') {
+      setStageFilter(PipelineStage.CLINICAL_REVIEW);
+      setStatusFilter('ALL');
+      setPriorityFilter('ALL');
+    } else if (tab === 'scheduling') {
+      setStageFilter(PipelineStage.SCHEDULING);
+      setStatusFilter('ALL');
+      setPriorityFilter('ALL');
+    } else if (tab === 'needs_info') {
+      setStageFilter('ALL');
+      setStatusFilter(WorkStatus.BLOCKED_NEEDS_INFO);
+      setPriorityFilter('ALL');
+    } else if (tab === 'urgent') {
+      setStageFilter('ALL');
+      setStatusFilter('ALL');
+      setPriorityFilter(Priority.URGENT);
+    }
+  };
+
+  // Check if any filter is active
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    stageFilter !== 'ALL' ||
+    statusFilter !== 'ALL' ||
+    priorityFilter !== 'ALL' ||
+    siteFilter !== 'ALL';
+
+  const resetAllFilters = () => {
+    setSearchQuery('');
+    setStageFilter('ALL');
+    setStatusFilter('ALL');
+    setPriorityFilter('ALL');
+    setSiteFilter('ALL');
+    setQuickTab('all');
+  };
 
   // Transition Mutation with gate check error handling & rollback
   const transitionMutation = useMutation({
@@ -213,6 +285,7 @@ export default function ReferralsPage() {
     onSuccess: (result, variables) => {
       toast.success(`Referral moved to ${variables.targetStage.replace('_', ' ')}`);
       queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     },
   });
@@ -285,118 +358,583 @@ export default function ReferralsPage() {
     [referrals, activeDragId],
   );
 
+  const copyTracking = (trackingNumber: string) => {
+    navigator.clipboard.writeText(trackingNumber);
+    toast.success('Tracking ID Copied', { description: trackingNumber });
+  };
+
   return (
-    <AppLayout title="Referrals Pipeline">
-      <div className="space-y-5 pb-8">
-        {/* Top Control Bar */}
+    <AppLayout title="Referrals Management">
+      <div className="space-y-4 pb-10 max-w-7xl mx-auto">
+        {/* Top Header & View Mode Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Clinical Referral Pipeline
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
+                Clinical Referrals Directory
+              </h1>
+              <Badge variant="secondary" className="text-[11px] font-mono px-2 py-0.5 font-semibold">
+                {isLoading ? '...' : `${referrals.length} Total`}
+              </Badge>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Drag and drop patient referrals across the 6 authoritative workflow gates
+              Comprehensive operational queue for inbound referrals, patient records, and multi-stage workflow determinations
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="h-8 gap-1.5 text-xs bg-background"
+              className="h-8 gap-1.5 text-xs bg-background shadow-2xs hover:bg-muted"
             >
               <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
               <span>Refresh</span>
             </Button>
 
-            {/* View Mode Toggle */}
+            {/* View Mode Toggle: Table View (Default) vs Kanban Board */}
             <div className="border border-border rounded-lg p-0.5 flex bg-muted/40 shadow-2xs">
               <button
                 type="button"
-                onClick={() => setViewMode('board')}
-                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
-                  viewMode === 'board' ? 'bg-background text-foreground shadow-2xs font-semibold' : 'text-muted-foreground hover:text-foreground'
-                }`}
-                title="Interactive Kanban Board"
-              >
-                <Kanban className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
-                  viewMode === 'list' ? 'bg-background text-foreground shadow-2xs font-semibold' : 'text-muted-foreground hover:text-foreground'
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                  viewMode === 'table'
+                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title="Data Table View"
               >
                 <List className="h-3.5 w-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('board')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                  viewMode === 'board'
+                    ? 'bg-background text-foreground shadow-2xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="Interactive Kanban Pipeline"
+              >
+                <Kanban className="h-3.5 w-3.5" />
+                <span>Board</span>
               </button>
             </div>
 
-            <Link href="/referrals/new">
-              <Button size="sm" className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-xs">
-                <Plus className="h-3.5 w-3.5" />
-                <span>New Referral</span>
+            {canCreateReferrals(user?.roles) && (
+              <Link href="/referrals/new">
+                <Button size="sm" className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs">
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Create Referral</span>
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+
+        {/* 1. High-Level Quick Filter Tabs (Linear / Stripe style) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/40 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('all')}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'all'
+                ? 'bg-primary text-primary-foreground font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            All Referrals
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('intake')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'intake'
+                ? 'bg-blue-600 text-white font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Inbox className="h-3.5 w-3.5 text-blue-500" />
+            <span>1. Intake Queue</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('clinical')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'clinical'
+                ? 'bg-purple-600 text-white font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Stethoscope className="h-3.5 w-3.5 text-purple-500" />
+            <span>2. Clinical Review</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('scheduling')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'scheduling'
+                ? 'bg-amber-600 text-white font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Calendar className="h-3.5 w-3.5 text-amber-500" />
+            <span>3. Scheduling</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('needs_info')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'needs_info'
+                ? 'bg-rose-600 text-white font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
+            <span>Action Required</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleQuickTabSelect('urgent')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+              quickTab === 'urgent'
+                ? 'bg-rose-600 text-white font-semibold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>STAT & Urgent</span>
+          </button>
+        </div>
+
+        {/* 2. High-Power Filter Bar with Dropdowns and Search */}
+        <div className="p-3 rounded-xl border border-border/80 bg-card shadow-2xs space-y-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[240px] max-w-md">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" aria-hidden="true" />
+              <Input
+                type="search"
+                aria-label="Search referrals by patient name, MRN, tracking number, or provider"
+                placeholder="Search patient, MRN, tracking #, provider, or payer…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-8.5 pl-8 pr-8 text-xs bg-background border-border/80"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground p-0.5"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter: Pipeline Stage */}
+            <div className="w-[170px]">
+              <Select
+                value={stageFilter}
+                onValueChange={(val) => {
+                  setStageFilter(val || 'ALL');
+                  setQuickTab('all');
+                }}
+              >
+                <SelectTrigger className="h-8.5 text-xs bg-background border-border/80">
+                  <SelectValue placeholder="All Stages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Pipeline Stages</SelectItem>
+                  {STAGES.map((s) => (
+                    <SelectItem key={s.stage} value={s.stage}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter: Work Status */}
+            <div className="w-[170px]">
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => {
+                  setStatusFilter(val || 'ALL');
+                  setQuickTab('all');
+                }}
+              >
+                <SelectTrigger className="h-8.5 text-xs bg-background border-border/80">
+                  <SelectValue placeholder="All Work Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Work Statuses</SelectItem>
+                  <SelectItem value={WorkStatus.PENDING}>Pending</SelectItem>
+                  <SelectItem value={WorkStatus.IN_PROGRESS}>In Progress</SelectItem>
+                  <SelectItem value={WorkStatus.BLOCKED_NEEDS_INFO}>Blocked / Needs Info</SelectItem>
+                  <SelectItem value={WorkStatus.ON_HOLD}>On Hold</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter: Priority */}
+            <div className="w-[145px]">
+              <Select
+                value={priorityFilter}
+                onValueChange={(val) => {
+                  setPriorityFilter(val || 'ALL');
+                  setQuickTab('all');
+                }}
+              >
+                <SelectTrigger className="h-8.5 text-xs bg-background border-border/80">
+                  <SelectValue placeholder="All Priorities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Priorities</SelectItem>
+                  <SelectItem value={Priority.ROUTINE}>Routine</SelectItem>
+                  <SelectItem value={Priority.URGENT}>Urgent</SelectItem>
+                  <SelectItem value={Priority.STAT}>STAT Priority</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filter: Site */}
+            <div className="w-[130px]">
+              <Select value={siteFilter} onValueChange={(val) => setSiteFilter(val || 'ALL')}>
+                <SelectTrigger className="h-8.5 text-xs bg-background border-border/80">
+                  <SelectValue placeholder="All Sites" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Sites</SelectItem>
+                  <SelectItem value="Site-A">Site-A</SelectItem>
+                  <SelectItem value="Site-B">Site-B</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reset Filters CTA */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetAllFilters}
+                className="h-8.5 text-xs text-muted-foreground hover:text-foreground gap-1 px-2.5"
+              >
+                <X className="h-3 w-3" />
+                <span>Reset Filters</span>
               </Button>
-            </Link>
+            )}
           </div>
+
+          {/* Active Filter Chips Strip */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-[11px] text-muted-foreground">
+              <span className="font-semibold text-foreground mr-1">Active Filters:</span>
+              {searchQuery && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border">
+                  Search: &ldquo;{searchQuery}&rdquo;
+                  <button type="button" onClick={() => setSearchQuery('')} className="hover:text-foreground">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              {stageFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  Stage: {stageFilter.replace(/_/g, ' ')}
+                  <button type="button" onClick={() => setStageFilter('ALL')} className="hover:text-primary-foreground">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              {statusFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border">
+                  Status: {statusFilter.replace(/_/g, ' ')}
+                  <button type="button" onClick={() => setStatusFilter('ALL')}>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              {priorityFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border">
+                  Priority: {priorityFilter}
+                  <button type="button" onClick={() => setPriorityFilter('ALL')}>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              {siteFilter !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted border border-border">
+                  Site: {siteFilter}
+                  <button type="button" onClick={() => setSiteFilter('ALL')}>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              <span className="ml-auto font-medium tabular-nums">
+                {referrals.length} matching {referrals.length === 1 ? 'case' : 'cases'}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Filter and Search Bar using newly styled Shadcn Selects */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px] max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            <Input
-              type="search"
-              aria-label="Search referrals by patient name, MRN, or tracking number"
-              placeholder="Search patient, MRN, tracking #…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs bg-background"
-            />
-          </div>
+        {/* VIEW 1: Full High-Density SaaS Data Table (DEFAULT VIEW) */}
+        {viewMode === 'table' ? (
+          <Card className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-muted/50 border-b border-border/80 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="py-3 px-3.5 w-8">
+                      <Checkbox aria-label="Select all referrals" />
+                    </th>
+                    <th className="py-3 px-3 font-semibold min-w-[210px]">Patient & Tracking ID</th>
+                    <th className="py-3 px-3 font-semibold">Workflow Stage</th>
+                    <th className="py-3 px-3 font-semibold">Work Status</th>
+                    <th className="py-3 px-3 font-semibold">Urgency</th>
+                    <th className="py-3 px-3 font-semibold min-w-[150px]">Referring Facility / Provider</th>
+                    <th className="py-3 px-3 font-semibold min-w-[150px]">Insurance Payer & ID</th>
+                    <th className="py-3 px-3 font-semibold">Site</th>
+                    <th className="py-3 px-3 font-semibold">Stage Age</th>
+                    <th className="py-3 px-3 text-right font-semibold min-w-[110px]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60 bg-card">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center text-muted-foreground">
+                        <Clock className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" aria-hidden="true" />
+                        <span className="font-medium text-xs">Loading clinical referrals…</span>
+                      </td>
+                    </tr>
+                  ) : referrals.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-16 text-center">
+                        <div className="max-w-xs mx-auto space-y-3">
+                          <div className="h-10 w-10 rounded-full bg-muted/60 text-muted-foreground flex items-center justify-center mx-auto">
+                            <Filter className="h-5 w-5 opacity-70" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-foreground">No referrals found</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {hasActiveFilters
+                                ? 'No referrals match your current search and filter criteria.'
+                                : 'There are currently no inbound referrals in your operational scope.'}
+                            </p>
+                          </div>
+                          {hasActiveFilters ? (
+                            <Button size="sm" variant="outline" onClick={resetAllFilters} className="text-xs h-7">
+                              Clear all filters
+                            </Button>
+                          ) : canCreateReferrals(user?.roles) ? (
+                            <Link href="/referrals/new">
+                              <Button size="sm" className="text-xs h-7">
+                                Create first referral
+                              </Button>
+                            </Link>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    referrals.map((r) => {
+                      const nextStage = getNextStage(r.pipelineStage);
+                      const mrn = r.patient?.medicalRecordNumber || 'MRN-Pending';
+                      const initials = `${r.patient?.firstName?.[0] || ''}${r.patient?.lastName?.[0] || ''}`.toUpperCase() || 'PT';
+                      const stageAge = formatStageAge(r.updatedAt || r.createdAt);
 
-          {/* Shadcn Select: Stage */}
-          <div className="w-[180px]">
-            <Select value={stageFilter} onValueChange={(val) => setStageFilter(val || 'ALL')}>
-              <SelectTrigger className="h-8 text-xs bg-background">
-                <SelectValue placeholder="All Stages (Funnel)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Stages (Funnel)</SelectItem>
-                {STAGES.map((s) => (
-                  <SelectItem key={s.stage} value={s.stage}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                      return (
+                        <tr key={r.id} className="hover:bg-muted/40 transition-colors group">
+                          <td className="py-3 px-3.5">
+                            <Checkbox aria-label={`Select referral ${r.trackingNumber}`} />
+                          </td>
 
-          {/* Shadcn Select: Priority */}
-          <div className="w-[150px]">
-            <Select value={priorityFilter} onValueChange={(val) => setPriorityFilter(val || 'ALL')}>
-              <SelectTrigger className="h-8 text-xs bg-background">
-                <SelectValue placeholder="All Priorities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All Priorities</SelectItem>
-                <SelectItem value={Priority.ROUTINE}>Routine</SelectItem>
-                <SelectItem value={Priority.URGENT}>Urgent</SelectItem>
-                <SelectItem value={Priority.STAT}>STAT Priority</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                          {/* Patient & Tracking */}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar className="h-8 w-8 rounded-lg shrink-0 border border-border bg-primary/5 text-primary text-[10px] font-bold">
+                                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <Link
+                                  href={`/referrals/${r.id}`}
+                                  className="font-bold text-xs text-foreground hover:text-primary hover:underline truncate block"
+                                >
+                                  {r.patient?.firstName} {r.patient?.lastName}
+                                </Link>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
+                                  <span className="font-mono">{mrn}</span>
+                                  <span>•</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyTracking(r.trackingNumber)}
+                                    className="hover:text-foreground flex items-center gap-0.5 font-mono"
+                                    title="Click to copy tracking ID"
+                                  >
+                                    <span>{r.trackingNumber}</span>
+                                    <Copy className="h-2.5 w-2.5 opacity-60 hover:opacity-100" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
 
-          <div className="ml-auto text-xs text-muted-foreground font-medium tabular-nums">
-            {isLoading ? 'Loading cases…' : `${referrals.length} active referrals`}
-          </div>
-        </div>
+                          {/* Pipeline Stage */}
+                          <td className="py-3 px-3">
+                            <PipelineStageBadge stage={r.pipelineStage} />
+                          </td>
 
-        {/* VIEW 1: Drag-and-Drop Kanban Board */}
-        {viewMode === 'board' ? (
+                          {/* Work Status */}
+                          <td className="py-3 px-3">
+                            <WorkStatusBadge status={r.workStatus} />
+                          </td>
+
+                          {/* Urgency */}
+                          <td className="py-3 px-3">
+                            <PriorityBadge priority={r.priority} />
+                          </td>
+
+                          {/* Referring Facility & Provider */}
+                          <td className="py-3 px-3">
+                            <div className="space-y-0.5 text-xs truncate max-w-[170px]">
+                              <div className="font-medium text-foreground truncate flex items-center gap-1">
+                                <Building2 className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                                <span className="truncate">{r.referringFacility || r.referralSource || 'Inbound Clinic'}</span>
+                              </div>
+                              {r.referringProvider && (
+                                <div className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                                  <Stethoscope className="h-2.5 w-2.5 shrink-0 text-muted-foreground/70" />
+                                  <span className="truncate">{r.referringProvider}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Insurance Payer */}
+                          <td className="py-3 px-3">
+                            <div className="space-y-0.5 text-xs truncate max-w-[170px]">
+                              <div className="font-medium text-foreground truncate flex items-center gap-1">
+                                <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-600" />
+                                <span className="truncate">{r.insurancePayer || 'Self-Pay / Pending'}</span>
+                              </div>
+                              {r.insuranceMemberId && (
+                                <div className="text-[10px] text-muted-foreground font-mono truncate">
+                                  ID: {r.insuranceMemberId}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Site */}
+                          <td className="py-3 px-3">
+                            <span className="text-[10px] font-semibold uppercase text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
+                              {r.site || 'Site-A'}
+                            </span>
+                          </td>
+
+                          {/* Age & Last Updated */}
+                          <td className="py-3 px-3">
+                            <span className="text-[11px] text-muted-foreground font-medium tabular-nums flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5 opacity-60" />
+                              <span>{stageAge}</span>
+                            </span>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link href={`/referrals/${r.id}`}>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[11px] px-2.5 font-medium border-border/80 hover:bg-muted"
+                                >
+                                  {r.pipelineStage === PipelineStage.CLINICAL_REVIEW ? 'Review' : 'View'}
+                                </Button>
+                              </Link>
+
+                              {nextStage && canTransitionStage(r.pipelineStage, nextStage, user?.roles) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() =>
+                                    transitionMutation.mutate({
+                                      id: r.id,
+                                      targetStage: nextStage,
+                                      version: r.version,
+                                      reason: 'Table quick advance',
+                                    })
+                                  }
+                                  disabled={transitionMutation.isPending}
+                                  className="h-7 text-[11px] px-2 gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                                  title={`Advance to ${nextStage.replace('_', ' ')}`}
+                                >
+                                  <span>Advance</span>
+                                  <ArrowRight className="h-2.5 w-2.5" />
+                                </Button>
+                              )}
+
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                    />
+                                  }
+                                >
+                                  <MoreVertical className="h-3.5 w-3.5" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 text-xs">
+                                  <DropdownMenuItem render={<Link href={`/referrals/${r.id}`} />}>
+                                    <Eye className="mr-2 h-3.5 w-3.5" />
+                                    View Full Record
+                                  </DropdownMenuItem>
+                                  {r.patient?.id && (
+                                    <DropdownMenuItem render={<Link href={`/patients/${r.patient.id}`} />}>
+                                      <UserCheck className="mr-2 h-3.5 w-3.5" />
+                                      Patient Profile
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => setSelectedReferralForDrawer(r)}>
+                                    <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                                    Quick Action Drawer
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => copyTracking(r.trackingNumber)}>
+                                    <Copy className="mr-2 h-3.5 w-3.5" />
+                                    Copy Tracking ID
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Table Footer Summary */}
+            <div className="p-3 border-t border-border/60 bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Showing <strong>{referrals.length}</strong> of <strong>{data?.total || referrals.length}</strong> clinical referrals
+              </span>
+              <span className="text-[11px]">
+                Click any patient or tracking ID to open the authoritative workflow record
+              </span>
+            </div>
+          </Card>
+        ) : (
+          /* VIEW 2: Interactive Drag-and-Drop Kanban Board (Accessible via Toggle) */
           <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
@@ -451,157 +989,13 @@ export default function ReferralsPage() {
                   <div className="font-semibold text-xs text-foreground">
                     {activeReferral.patient?.firstName} {activeReferral.patient?.lastName}
                   </div>
-                  <div className="text-[11px] text-muted-foreground  mt-1">
+                  <div className="text-[11px] text-muted-foreground mt-1">
                     MRN: {activeReferral.patient?.medicalRecordNumber || 'MRN-Pending'}
                   </div>
                 </div>
               ) : null}
             </DragOverlay>
           </DndContext>
-        ) : (
-          /* VIEW 2: Full Data Table (matching img1) */
-          <Card className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-muted/40 border-b border-border/80 text-muted-foreground font-medium uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4 w-10">
-                      <Checkbox aria-label="Select all" />
-                    </th>
-                    <th className="py-3 px-4 font-semibold">Patient & Tracking #</th>
-                    <th className="py-3 px-4 font-semibold">Stage</th>
-                    <th className="py-3 px-4 font-semibold">Status</th>
-                    <th className="py-3 px-4 font-semibold">Priority</th>
-                    <th className="py-3 px-4 font-semibold">Referring Source</th>
-                    <th className="py-3 px-4 font-semibold">Insurance Payer</th>
-                    <th className="py-3 px-4 font-semibold">Site</th>
-                    <th className="py-3 px-4 font-semibold">Version</th>
-                    <th className="py-3 px-4 text-right font-semibold">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60 bg-card">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-muted-foreground">
-                        <Clock className="h-4 w-4 animate-spin mx-auto mb-1 text-primary" aria-hidden="true" />
-                        <span>Loading referrals…</span>
-                      </td>
-                    </tr>
-                  ) : referrals.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="py-12 text-center text-muted-foreground">
-                        <CheckCircle2 className="h-6 w-6 text-emerald-500 mx-auto mb-1 opacity-80" />
-                        <p className="font-semibold text-foreground">No referrals found</p>
-                        <p className="text-[11px]">Try adjusting your search or stage filters.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    referrals.map((r) => {
-                      const nextStage = getNextStage(r.pipelineStage);
-                      const mrn = r.patient?.medicalRecordNumber || 'MRN-Pending';
-
-                      return (
-                        <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="py-3 px-4">
-                            <Checkbox aria-label="Select referral" />
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-col">
-                              <Link
-                                href={`/referrals/${r.id}`}
-                                className="font-semibold text-foreground hover:underline"
-                              >
-                                {r.patient?.firstName} {r.patient?.lastName}
-                              </Link>
-                              <span className="text-[11px] font-medium text-muted-foreground">
-                                {mrn} • {r.trackingNumber}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <PipelineStageBadge stage={r.pipelineStage} />
-                          </td>
-                          <td className="py-3 px-4">
-                            <WorkStatusBadge status={r.workStatus} />
-                          </td>
-                          <td className="py-3 px-4">
-                            <PriorityBadge priority={r.priority} />
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-xs text-foreground/80 truncate block max-w-[140px]">
-                              {r.referringFacility || r.referralSource || 'Clinic'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-xs text-foreground/80 truncate block max-w-[140px]">
-                              {r.insurancePayer || 'Self-Pay / Pending'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-[11px]  text-muted-foreground uppercase">
-                              {r.site}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="text-[11px] font-medium text-muted-foreground">
-                              v{r.version}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {nextStage && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    transitionMutation.mutate({
-                                      id: r.id,
-                                      targetStage: nextStage,
-                                      version: r.version,
-                                    })
-                                  }
-                                  disabled={transitionMutation.isPending}
-                                  className="h-6 text-[10px] px-2 gap-1"
-                                >
-                                  <span>Advance</span>
-                                  <ArrowRight className="h-2.5 w-2.5" />
-                                </Button>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger
-                                  render={
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                                    />
-                                  }
-                                >
-                                  <MoreVertical className="h-3.5 w-3.5" />
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-40 text-xs">
-                                  <DropdownMenuItem render={<Link href={`/referrals/${r.id}`} />}>
-                                    <Eye className="mr-2 h-3.5 w-3.5" />
-                                    View Record
-                                  </DropdownMenuItem>
-                                  {r.patient?.id && (
-                                    <DropdownMenuItem render={<Link href={`/patients/${r.patient.id}`} />}>
-                                      Patient Profile
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
         )}
 
         {/* Interactive Referral Detail & Actions Drawer */}
@@ -712,7 +1106,7 @@ function KanbanDroppableColumn({
             {stageConfig.label}
           </span>
         </div>
-        <Badge variant="secondary" className="text-[10px] h-4.5 px-1.5  font-semibold">
+        <Badge variant="secondary" className="text-[10px] h-4.5 px-1.5 font-semibold">
           {referrals.length}
         </Badge>
       </div>

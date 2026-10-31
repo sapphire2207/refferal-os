@@ -78,6 +78,15 @@ export class ReferralsService {
       throw new NotFoundException(`Patient with ID ${dto.patientId} not found`);
     }
 
+    // Resolve location defaults from user scope if not explicitly provided in DTO
+    const firstAllowedSite = user.scopes?.sites?.find((s) => s !== 'ALL' && s !== '*');
+    const firstAllowedState = user.scopes?.states?.find((s) => s !== 'ALL' && s !== '*');
+    const firstAllowedEntity = user.scopes?.legalEntities?.find((e) => e !== 'ALL' && e !== '*');
+
+    const resolvedSite = dto.site || firstAllowedSite || 'Site-A';
+    const resolvedState = dto.state || firstAllowedState || 'CA';
+    const resolvedLegalEntity = dto.legalEntity || firstAllowedEntity || 'legal-entity-1';
+
     const referral = await this.prisma.referral.create({
       data: {
         patientId: dto.patientId,
@@ -94,9 +103,9 @@ export class ReferralsService {
         coverageVerified: dto.coverageVerified ?? false,
         coverageVerificationDate: dto.coverageVerificationDate,
         coverageNotes: dto.coverageNotes,
-        site: dto.site,
-        state: dto.state,
-        legalEntity: dto.legalEntity,
+        site: resolvedSite,
+        state: resolvedState,
+        legalEntity: resolvedLegalEntity,
         priority: dto.priority || 'ROUTINE',
         assignedTo: dto.assignedTo,
         assignedRole: (dto.assignedRole as unknown as any) || (dto.assignedTo ? 'INTAKE_SPECIALIST' : null),
@@ -213,7 +222,10 @@ export class ReferralsService {
           where.site = query.site;
         }
       } else if (!hasAllSites && allowedSites.length > 0) {
-        where.site = { in: allowedSites };
+        where.OR = [
+          { site: { in: allowedSites } },
+          { site: null },
+        ];
       }
 
       if (query.state) {

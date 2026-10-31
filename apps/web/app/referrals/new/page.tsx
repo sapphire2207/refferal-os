@@ -266,10 +266,17 @@ export default function NewReferralPage() {
         resolvedPatientId = selectedPatient.id;
       }
 
-      // Only send fields CreateReferralDto accepts — no site/state/legalEntity (those are scoped to user)
+      // Resolve user's operational location scope
+      const primarySite = user?.sites?.find((s: string) => s !== 'ALL' && s !== '*') || 'Site-A';
+      const primaryState = user?.states?.find((s: string) => s !== 'ALL' && s !== '*') || 'CA';
+      const primaryLegalEntity = user?.legalEntities?.find((e: string) => e !== 'ALL' && e !== '*') || 'legal-entity-1';
+
       return apiClient.post<{ id: string }>('/referrals', {
         patientId: resolvedPatientId,
         priority,
+        site: primarySite,
+        state: primaryState,
+        legalEntity: primaryLegalEntity,
         ...(referralSource.trim() && { referralSource: referralSource.trim() }),
         ...(referringProvider.trim() && { referringProvider: referringProvider.trim() }),
         ...(referringFacility.trim() && { referringFacility: referringFacility.trim() }),
@@ -280,6 +287,7 @@ export default function NewReferralPage() {
       toast.success('Referral Created Successfully', {
         description: 'Referral is now in INTAKE stage awaiting document verification.',
       });
+      queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
       router.push(`/referrals/${data.id}`);
