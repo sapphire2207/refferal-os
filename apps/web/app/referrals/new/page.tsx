@@ -13,10 +13,49 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { Priority, UserRole } from '@heals/types';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, PlusCircle, Search, Check, ShieldAlert, X } from 'lucide-react';
+import {
+  Loader2,
+  ArrowLeft,
+  PlusCircle,
+  Search,
+  Check,
+  ShieldAlert,
+  X,
+  AlertTriangle,
+  UserCheck,
+  UserPlus,
+  Sparkles,
+} from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
+
+// ─── Duplicate Patient Match Result ───────────────────────────────────────────
+interface DuplicateMatch {
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth?: string;
+    medicalRecordNumber?: string;
+    phone?: string;
+    email?: string;
+    city?: string;
+    state?: string;
+  };
+  matchScore: number;
+  matchLevel: 'EXACT' | 'HIGH_PROBABILITY' | 'POTENTIAL';
+  matchReasons: string[];
+}
 
 // ─── Patient search combobox ───────────────────────────────────────────────────
 interface PatientResult {
@@ -246,11 +285,42 @@ export default function NewReferralPage() {
   const [insurancePayer, setInsurancePayer] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Duplicate patient resolution state
+  const [detectedDuplicates, setDetectedDuplicates] = useState<DuplicateMatch[] | null>(null);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+
+  // Preemptive duplicate search while entering demographics
+  const debouncedFirst = useDebounce(firstName.trim(), 400);
+  const debouncedLast = useDebounce(lastName.trim(), 400);
+  const debouncedDob = useDebounce(dateOfBirth, 400);
+
+  const { data: preemptiveDups } = useQuery<DuplicateMatch[]>({
+    queryKey: ['check-duplicate-patient', debouncedFirst, debouncedLast, debouncedDob],
+    queryFn: async () => {
+      if (!debouncedFirst || !debouncedLast || !debouncedDob) return [];
+      try {
+        return await apiClient.post<DuplicateMatch[]>('/patients/check-duplicates', {
+          firstName: debouncedFirst,
+          lastName: debouncedLast,
+          dateOfBirth: debouncedDob,
+          ...(phone.trim() && { phone: phone.trim() }),
+          ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
+        });
+      } catch {
+        return [];
+      }
+    },
+    enabled: patientMode === 'new' && debouncedFirst.length >= 2 && debouncedLast.length >= 2 && Boolean(debouncedDob),
+    staleTime: 30_000,
+  });
+
   const createReferralMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params?: { forceCreate?: boolean; overridePatientId?: string }) => {
       let resolvedPatientId: string;
 
-      if (patientMode === 'new') {
+      if (params?.overridePatientId) {
+        resolvedPatientId = params.overridePatientId;
+      } else if (patientMode === 'new') {
         // Only send fields the CreatePatientDto accepts
         const patientRes = await apiClient.post<{ id: string }>('/patients', {
           firstName: firstName.trim(),
@@ -259,6 +329,7 @@ export default function NewReferralPage() {
           ...(phone.trim() && { phone: phone.trim() }),
           ...(email.trim() && { email: email.trim() }),
           ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
+          ...(params?.forceCreate && { forceCreate: true }),
         });
         resolvedPatientId = patientRes.id;
       } else {
@@ -293,11 +364,36 @@ export default function NewReferralPage() {
       router.push(`/referrals/${data.id}`);
     },
     onError: (err: any) => {
+      // Catch duplicate conflict and prompt interactive resolution dialog
+      if (err.status === 409 && (err.data?.duplicates?.length > 0 || err.message?.includes('duplicate'))) {
+        const dups: DuplicateMatch[] = err.data?.duplicates || [];
+        setDetectedDuplicates(dups);
+        setShowDuplicateDialog(true);
+        return;
+      }
+
       toast.error('Failed to Create Referral', {
         description: err.message || 'Please verify that all required fields are provided.',
       });
     },
   });
+
+  const handleLinkExisting = (patient: DuplicateMatch['patient'] | PatientResult) => {
+    setShowDuplicateDialog(false);
+    setDetectedDuplicates(null);
+    setPatientMode('existing');
+    setSelectedPatient({
+      id: patient.id,
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dateOfBirth: patient.dateOfBirth,
+      medicalRecordNumber: patient.medicalRecordNumber,
+      phone: patient.phone,
+    });
+    toast.info(`Selected existing patient: ${patient.firstName} ${patient.lastName}`, {
+      description: 'Patient linked. Review classification details and click Submit Referral.',
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -469,6 +565,39 @@ export default function NewReferralPage() {
                       className="h-8 text-xs"
                     />
                   </div>
+
+                  {/* Preemptive Duplicate Alert */}
+                  {preemptiveDups && preemptiveDups.length > 0 && (
+                    <div className="sm:col-span-2 p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs space-y-2 animate-in fade-in-50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>Matching Patient Record Already Exists</span>
+                        </div>
+                        <Badge variant="outline" className="border-amber-500/40 bg-amber-500/20 text-amber-900 dark:text-amber-200 text-[10px] font-bold">
+                          {Math.round(preemptiveDups[0].matchScore * 100)}% Match • {preemptiveDups[0].matchLevel.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-amber-900/90 dark:text-amber-200/90">
+                        A patient named <strong>{preemptiveDups[0].patient.firstName} {preemptiveDups[0].patient.lastName}</strong>
+                        {preemptiveDups[0].patient.medicalRecordNumber ? ` (${preemptiveDups[0].patient.medicalRecordNumber})` : ''} born on {new Date(preemptiveDups[0].patient.dateOfBirth || dateOfBirth).toLocaleDateString()} is already registered in the system.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleLinkExisting(preemptiveDups[0].patient)}
+                          className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5 shadow-2xs"
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                          <span>Use This Existing Patient</span>
+                        </Button>
+                        <span className="text-[10px] text-muted-foreground">
+                          or continue below to review or force-create
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2 min-h-[90px]">
@@ -604,6 +733,115 @@ export default function NewReferralPage() {
             </Button>
           </div>
         </form>
+
+        {/* Interactive Duplicate Patient Resolution Dialog */}
+        <Dialog open={showDuplicateDialog} onOpenChange={setShowDuplicateDialog}>
+          <DialogContent className="sm:max-w-md p-5 space-y-4">
+            <DialogHeader>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-full bg-amber-500/15 text-amber-600 shrink-0">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-bold text-foreground">
+                    Potential Duplicate Patient Record
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    The demographics match an existing patient in the database.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60 text-[11px] space-y-1">
+                <span className="font-semibold text-muted-foreground block text-[10px] uppercase">
+                  Candidate Demographics Entered
+                </span>
+                <div className="font-semibold text-foreground">{firstName} {lastName}</div>
+                <div className="text-muted-foreground">
+                  DOB: {dateOfBirth} {phone ? `• Phone: ${phone}` : ''} {medicalRecordNumber ? `• MRN: ${medicalRecordNumber}` : ''}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="font-semibold text-foreground text-[11px] block">
+                  Existing Registered Patient:
+                </span>
+                {(detectedDuplicates && detectedDuplicates.length > 0
+                  ? detectedDuplicates
+                  : preemptiveDups || []
+                ).slice(0, 2).map((dup, idx) => (
+                  <div
+                    key={dup.patient.id || idx}
+                    className="p-3 rounded-lg border border-primary/20 bg-primary/5 space-y-2.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">
+                        {dup.patient.firstName} {dup.patient.lastName}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] uppercase font-bold border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        {Math.round(dup.matchScore * 100)}% Match • {dup.matchLevel}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground space-y-0.5">
+                      <div>
+                        DOB: {dup.patient.dateOfBirth ? new Date(dup.patient.dateOfBirth).toLocaleDateString() : 'N/A'} • MRN: {dup.patient.medicalRecordNumber || 'Pending'}
+                      </div>
+                      {dup.patient.phone && <div>Phone: {dup.patient.phone}</div>}
+                      {dup.matchReasons?.length > 0 && (
+                        <div className="text-amber-800 dark:text-amber-300 font-medium text-[10px] pt-0.5">
+                          Matched on: {dup.matchReasons.join(', ')}
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        setShowDuplicateDialog(false);
+                        createReferralMutation.mutate({ overridePatientId: dup.patient.id });
+                      }}
+                      disabled={createReferralMutation.isPending}
+                      className="w-full h-8 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-2xs"
+                    >
+                      <UserCheck className="h-3.5 w-3.5" />
+                      <span>Link Referral to {dup.patient.firstName} {dup.patient.lastName} (Recommended)</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/60">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDuplicateDialog(false)}
+                className="text-xs h-8 text-muted-foreground hover:text-foreground"
+              >
+                Edit Demographics
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowDuplicateDialog(false);
+                  createReferralMutation.mutate({ forceCreate: true });
+                }}
+                disabled={createReferralMutation.isPending}
+                className="text-xs h-8 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:bg-rose-500/10 gap-1"
+                title="Only use if this is a confirmed separate individual with the same name and DOB"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Create as Separate Patient Record</span>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
