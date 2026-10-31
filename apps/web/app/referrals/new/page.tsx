@@ -54,15 +54,24 @@ function PatientSearchCombobox({
 
   const results: PatientResult[] = extractApiList<PatientResult>(data);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or Escape key
   useEffect(() => {
-    function handler(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleSelect = (patient: PatientResult) => {
@@ -77,39 +86,49 @@ function PatientSearchCombobox({
   };
 
   if (value) {
-    // Show selected patient pill
+    // Show selected patient card
     return (
-      <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/40 text-xs">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[9px]">
-          {value.firstName[0]}{value.lastName[0]}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-primary/25 bg-primary/5 text-xs animate-in fade-in-50 duration-150">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs border border-primary/20 shadow-2xs">
+            {value.firstName[0]?.toUpperCase()}{value.lastName[0]?.toUpperCase()}
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-foreground">
+                {value.firstName} {value.lastName}
+              </span>
+              {value.medicalRecordNumber && (
+                <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-muted text-muted-foreground border border-border">
+                  {value.medicalRecordNumber}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-[11px]">
+              {value.dateOfBirth && (
+                <span>DOB: {new Date(value.dateOfBirth).toLocaleDateString()}</span>
+              )}
+              {value.phone && <span>Phone: {value.phone}</span>}
+            </div>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <span className="font-semibold text-foreground truncate">{value.firstName} {value.lastName}</span>
-          {value.medicalRecordNumber && (
-            <span className="ml-2 text-muted-foreground tabular-nums">{value.medicalRecordNumber}</span>
-          )}
-          {value.dateOfBirth && (
-            <span className="ml-2 text-muted-foreground">
-              DOB: {new Date(value.dateOfBirth).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={handleClear}
-          className="ml-auto shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Clear patient selection"
+          className="h-7 text-xs font-medium text-muted-foreground hover:text-foreground shrink-0 border-border"
         >
-          <X className="h-3.5 w-3.5" />
-        </button>
+          Change Patient
+        </Button>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative w-full">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
         <Input
           value={inputVal}
           onChange={(e) => {
@@ -117,53 +136,81 @@ function PatientSearchCombobox({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search by name, MRN, or phone…"
-          className="h-9 pl-8 text-xs"
+          placeholder="Type patient name, MRN, or phone number to search…"
+          className="h-9.5 pl-9 pr-9 text-xs bg-background border-border/80 focus-visible:ring-primary/30"
           autoComplete="off"
         />
-        {isFetching && (
-          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-        )}
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {isFetching && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          )}
+          {inputVal && !isFetching && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputVal('');
+                setOpen(false);
+              }}
+              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+              aria-label="Clear search input"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {open && debounced.trim().length >= 1 && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg overflow-hidden">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-lg border border-border/80 bg-popover/95 backdrop-blur-md shadow-xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-150">
           {results.length === 0 && !isFetching ? (
-            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
-              No patients found for &ldquo;{debounced}&rdquo;
+            <div className="p-4 text-center space-y-1">
+              <p className="text-xs font-medium text-foreground">
+                No patients found for &ldquo;{debounced}&rdquo;
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Check spelling or switch to &ldquo;New Patient&rdquo; above to register them.
+              </p>
             </div>
           ) : (
-            <ul className="max-h-56 overflow-y-auto divide-y divide-border/60">
+            <div className="max-h-60 overflow-y-auto divide-y divide-border/40 overscroll-contain">
+              <div className="px-3 py-1.5 text-[10px] uppercase font-semibold text-muted-foreground bg-muted/40 tracking-wider sticky top-0 backdrop-blur-md">
+                Search Results ({results.length})
+              </div>
               {results.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors text-left"
-                    onMouseDown={(e) => {
-                      e.preventDefault(); // prevent blur before select
-                      handleSelect(p);
-                    }}
-                  >
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[9px]">
-                      {p.firstName[0]}{p.lastName[0]}
+                <button
+                  key={p.id}
+                  type="button"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-xs hover:bg-accent/80 hover:text-accent-foreground transition-colors text-left group"
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // prevent blur before click registers
+                    handleSelect(p);
+                  }}
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[10px] group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    {p.firstName[0]?.toUpperCase()}{p.lastName[0]?.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-foreground group-hover:text-foreground flex items-center gap-2">
+                      <span className="truncate">{p.firstName} {p.lastName}</span>
+                      {p.medicalRecordNumber && (
+                        <span className="inline-flex px-1.5 py-0.2 rounded text-[9px] font-mono bg-muted text-muted-foreground border border-border">
+                          {p.medicalRecordNumber}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground">
-                        {p.firstName} {p.lastName}
-                      </div>
-                      <div className="text-muted-foreground tabular-nums truncate">
-                        {[
-                          p.medicalRecordNumber && `MRN: ${p.medicalRecordNumber}`,
-                          p.dateOfBirth && `DOB: ${new Date(p.dateOfBirth).toLocaleDateString()}`,
-                          p.phone,
-                        ].filter(Boolean).join(' · ')}
-                      </div>
+                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {[
+                        p.dateOfBirth && `DOB: ${new Date(p.dateOfBirth).toLocaleDateString()}`,
+                        p.phone,
+                      ].filter(Boolean).join(' · ')}
                     </div>
-                    <Check className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100" />
-                  </button>
-                </li>
+                  </div>
+                  <span className="text-[10px] font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    Select &rarr;
+                  </span>
+                </button>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}
@@ -312,7 +359,7 @@ export default function NewReferralPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* ── Patient Identification ─────────────────────────────── */}
-          <Card className="border border-border/80">
+          <Card className="border border-border/80 overflow-visible relative">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -347,7 +394,7 @@ export default function NewReferralPage() {
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 overflow-visible">
               {patientMode === 'new' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -416,15 +463,15 @@ export default function NewReferralPage() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Search Existing Patient *</Label>
+                <div className="space-y-2 min-h-[90px]">
+                  <Label className="text-xs font-medium">Search Existing Patient *</Label>
                   <PatientSearchCombobox
                     value={selectedPatient}
                     onChange={setSelectedPatient}
                   />
                   {!selectedPatient && (
                     <p className="text-[11px] text-muted-foreground">
-                      Type a name, MRN, or phone number to search registered patients.
+                      Type a patient name, MRN, or phone number to find existing medical records.
                     </p>
                   )}
                 </div>
