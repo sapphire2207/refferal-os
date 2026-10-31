@@ -143,13 +143,29 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Deactivate user and revoke all active sessions (Admin only)' })
+  @ApiOperation({ summary: 'Delete user account or cancel pending invite (Admin only)' })
   @ApiParam({ name: 'id', description: 'User UUID' })
-  @ApiResponse({ status: 200, description: 'User deactivated and all sessions terminated' })
-  async deactivateUser(
+  @ApiResponse({ status: 200, description: 'User deleted or access revoked' })
+  async deleteUser(
     @Param('id') id: string,
     @CurrentUser() user: AuthTokenPayload,
   ) {
+    return this.usersService.deleteUser(id, user.userId);
+  }
+
+  async deactivateUser(id: string, user: AuthTokenPayload) {
     return this.usersService.deactivateUser(id, user.userId);
+  }
+
+  @Post(':id/resend-invite')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Resend invitation email with refreshed 7-day token (Admin only)' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({ status: 200, description: 'Invitation email resent' })
+  async resendInvite(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.usersService.resendInvite(id, user.userId);
   }
 }

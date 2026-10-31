@@ -7,6 +7,7 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
@@ -420,5 +421,168 @@ export class UsersService {
    */
   async deactivateUser(id: string, adminUserId?: string) {
     return this.updateStatus(id, { isActive: false }, adminUserId);
+  }
+
+  /**
+   * Deletes a user account or cancels a pending invitation.
+   * If the user has clinical/audit history (HIPAA retention), soft-deletes and terminates sessions.
+   * If the user is a pending invite or has no clinical audit records, hard-deletes the record.
+   */
+  async deleteUser(id: string, adminUserId?: string) {
+    if (adminUserId && adminUserId === id) {
+      throw new BadRequestException('You cannot delete your own administrative account');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            clinicalReviews: true,
+            createdNotes: true,
+            signedNotes: true,
+            submittedClaims: true,
+            auditEvents: true,
+            uploadedDocuments: true,
+            verifiedDocuments: true,
+            assignedEncounters: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    // Always revoke active sessions and permissions
+    await this.authService.revokeAllUserSessions(id);
+    await this.redis.del(`user:permissions:${id}`);
+    await this.redis.del(`user:${id}:permissions`);
+
+    const hasClinicalHistory =
+      user._count.clinicalReviews > 0 ||
+      user._count.createdNotes > 0 ||
+      user._count.signedNotes > 0 ||
+      user._count.submittedClaims > 0 ||
+      user._count.auditEvents > 0 ||
+      user._count.uploadedDocuments > 0 ||
+      user._count.verifiedDocuments > 0 ||
+      user._count.assignedEncounters > 0;
+
+    if (!hasClinicalHistory) {
+      // Safe to completely hard-delete: remove roles, scopes, sessions, notifications, and user record
+      await this.prisma.$transaction(async (tx) => {
+        await tx.userRoleAssignment.deleteMany({ where: { userId: id } });
+        await tx.userScope.deleteMany({ where: { userId: id } });
+        await tx.session.deleteMany({ where: { userId: id } });
+        await tx.notification.deleteMany({ where: { userId: id } });
+        await tx.user.delete({ where: { id } });
+      });
+
+      this.logger.log(`User ${user.email} (ID: ${id}) permanently hard-deleted by admin ${adminUserId || 'system'}`);
+      return { success: true, message: `User ${user.email} deleted permanently`, deleted: true };
+    }
+
+    // If clinical history exists, HIPAA compliance requires retaining the audit trail.
+    // Soft-delete: deactivate, suspend, scrub tokens & credentials.
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        isActive: false,
+        isSuspended: true,
+        suspendedReason: 'Account deleted by administrator (Audit record retained for HIPAA compliance)',
+        invitationToken: null,
+        invitationExpiresAt: null,
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        mfaSecret: null,
+        mfaRecoveryCodes: [],
+      },
+    });
+
+    this.logger.warn(`User ${user.email} (ID: ${id}) soft-deleted (clinical records retained for HIPAA compliance) by admin ${adminUserId || 'system'}`);
+    return { success: true, message: `User ${user.email} deactivated and access revoked (clinical records retained for compliance)`, deleted: true };
+  }
+
+  /**
+   * Resends an invitation with a refreshed 7-day token.
+   */
+  async resendInvite(id: string, adminUserId?: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { userRoles: true, userScopes: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (user.isActive) {
+      throw new BadRequestException('User has already activated their account');
+    }
+
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const hashedInvitationToken = crypto.createHash('sha256').update(invitationToken).digest('hex');
+    const invitationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        invitationToken: hashedInvitationToken,
+        invitationExpiresAt,
+      },
+    });
+
+    const primaryRole = user.userRoles?.[0]?.role ?? 'STAFF';
+
+    // Non-blocking email dispatch
+    this.emailService
+      .sendInvitationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: primaryRole,
+        invitationToken,
+        expiresAt: invitationExpiresAt,
+      })
+      .catch((err) => this.logger.error(`Failed to resend invite to ${user.email}: ${err.message}`));
+
+    this.logger.log(`Resent invitation to ${user.email} (ID: ${id}) by admin ${adminUserId || 'system'}`);
+    return { success: true, message: `Invitation resent to ${user.email}` };
+  }
+
+  /**
+   * Retention Policy: Purges unaccepted invitations that have been expired for more than 30 days.
+   * Runs automatically every day at midnight.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async purgeExpiredInvitations(retentionDays = 30): Promise<{ purgedCount: number }> {
+    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+
+    const expiredPendingUsers = await this.prisma.user.findMany({
+      where: {
+        isActive: false,
+        invitationExpiresAt: { lt: cutoffDate },
+      },
+      select: { id: true, email: true },
+    });
+
+    if (expiredPendingUsers.length === 0) {
+      return { purgedCount: 0 };
+    }
+
+    let purgedCount = 0;
+    for (const u of expiredPendingUsers) {
+      try {
+        await this.deleteUser(u.id, 'retention-cleanup-service');
+        purgedCount++;
+      } catch (err: any) {
+        this.logger.error(`Error purging expired invite for user ${u.email}: ${err.message}`);
+      }
+    }
+
+    this.logger.log(`Retention policy: Purged ${purgedCount} expired unaccepted invitations older than ${retentionDays} days`);
+    return { purgedCount };
   }
 }

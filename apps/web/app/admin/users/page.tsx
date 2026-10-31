@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EmptyState, LoadingState } from '@/components/ui/state-views';
 import { ConfirmDangerDialog } from '@/components/ui/confirm-danger-dialog';
-import { ShieldCheck, UserPlus, ShieldAlert, CheckCircle, Ban, Loader2, RefreshCw, Users } from 'lucide-react';
+import { ShieldCheck, UserPlus, ShieldAlert, CheckCircle, Ban, Loader2, RefreshCw, Users, Trash2, Send } from 'lucide-react';
 import { UserRole } from '@heals/types';
 import { toast } from 'sonner';
 
@@ -25,6 +25,7 @@ export default function UsersAdminPage() {
   const isAdmin = user?.roles?.includes(UserRole.ADMIN);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<any | null>(null);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
 
   // Invite Form state
   const [email, setEmail] = useState('');
@@ -91,6 +92,30 @@ export default function UsersAdminPage() {
     },
     onError: (err: any) => {
       toast.error('Status Update Failed', { description: err.message });
+    },
+  });
+
+  // Delete User Mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/users/${id}`),
+    onSuccess: (data: any) => {
+      toast.success(data?.message || 'User deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setUserToDelete(null);
+    },
+    onError: (err: any) => {
+      toast.error('Deletion Failed', { description: err.message });
+    },
+  });
+
+  // Resend Invite Mutation
+  const resendInviteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/users/${id}/resend-invite`, {}),
+    onSuccess: () => {
+      toast.success('Invitation email resent successfully');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to Resend Invite', { description: err.message });
     },
   });
 
@@ -324,25 +349,68 @@ export default function UsersAdminPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (!u.isSuspended) {
-                                setUserToSuspend(u);
-                              } else {
-                                toggleStatusMutation.mutate({
-                                  id: u.id,
-                                  isSuspended: false,
-                                });
-                              }
-                            }}
-                            className={`h-7 text-xs px-2.5 font-medium ${
-                              u.isSuspended ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10' : 'text-rose-700 dark:text-rose-400 hover:bg-rose-500/10'
-                            }`}
-                          >
-                            {u.isSuspended ? 'Reactivate' : 'Suspend Access'}
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            {!u.isActive ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={resendInviteMutation.isPending}
+                                  onClick={() => resendInviteMutation.mutate(u.id)}
+                                  className="h-7 text-xs px-2 font-medium text-primary hover:bg-primary/10 gap-1"
+                                  title="Resend invitation email"
+                                >
+                                  <Send className="h-3 w-3" />
+                                  <span>Resend</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setUserToDelete(u)}
+                                  className="h-7 text-xs px-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 gap-1"
+                                  title="Cancel invitation and remove pending record"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Cancel</span>
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (!u.isSuspended) {
+                                      setUserToSuspend(u);
+                                    } else {
+                                      toggleStatusMutation.mutate({
+                                        id: u.id,
+                                        isSuspended: false,
+                                      });
+                                    }
+                                  }}
+                                  className={`h-7 text-xs px-2.5 font-medium ${
+                                    u.isSuspended
+                                      ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
+                                      : 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
+                                  }`}
+                                >
+                                  {u.isSuspended ? 'Reactivate' : 'Suspend'}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={u.id === user?.id}
+                                  onClick={() => setUserToDelete(u)}
+                                  className="h-7 text-xs px-2 font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 gap-1 disabled:opacity-30"
+                                  title={u.id === user?.id ? 'Cannot delete own account' : 'Delete user account'}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span>Delete</span>
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -369,6 +437,27 @@ export default function UsersAdminPage() {
                 { id: userToSuspend.id, isSuspended: true },
                 { onSettled: () => setUserToSuspend(null) }
               );
+            }
+          }}
+        />
+
+        {/* User Deletion Confirmation Dialog */}
+        <ConfirmDangerDialog
+          open={!!userToDelete}
+          onOpenChange={(open) => !open && setUserToDelete(null)}
+          title={!userToDelete?.isActive ? "Cancel Invitation" : "Delete Staff Account"}
+          description={
+            !userToDelete?.isActive
+              ? `Are you sure you want to cancel the invitation for ${userToDelete?.firstName} ${userToDelete?.lastName} (${userToDelete?.email})? The invitation link will be invalidated and this pending record will be permanently deleted.`
+              : `Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName} (${userToDelete?.email})? All active sessions will be terminated immediately. If this staff member has clinical records, their audit history will be archived for HIPAA compliance.`
+          }
+          confirmText={!userToDelete?.isActive ? "Delete Invitation" : "Delete Account"}
+          cancelText="Cancel"
+          variant="danger"
+          isLoading={deleteUserMutation.isPending}
+          onConfirm={() => {
+            if (userToDelete) {
+              deleteUserMutation.mutate(userToDelete.id);
             }
           }}
         />
