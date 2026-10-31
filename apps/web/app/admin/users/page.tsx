@@ -15,9 +15,39 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EmptyState, LoadingState } from '@/components/ui/state-views';
 import { ConfirmDangerDialog } from '@/components/ui/confirm-danger-dialog';
-import { ShieldCheck, UserPlus, ShieldAlert, CheckCircle, Ban, Loader2, RefreshCw, Users, Trash2, Send } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { ShieldCheck, UserPlus, ShieldAlert, CheckCircle, Ban, Loader2, RefreshCw, Users, Trash2, Send, MapPin } from 'lucide-react';
 import { UserRole } from '@heals/types';
 import { toast } from 'sonner';
+
+const AVAILABLE_SITES = [
+  { value: 'ALL', label: 'All Sites / System-Wide (Unrestricted)' },
+  { value: 'main', label: 'main — Primary HQ / Clinic (California)' },
+  { value: 'SITE-NYC', label: 'SITE-NYC — New York City' },
+  { value: 'SITE-ALB', label: 'SITE-ALB — Albany' },
+  { value: 'SITE-BUF', label: 'SITE-BUF — Buffalo' },
+  { value: 'SITE-CA-SF', label: 'SITE-CA-SF — San Francisco' },
+  { value: 'SITE-CA-LA', label: 'SITE-CA-LA — Los Angeles' },
+  { value: 'FL-MIAMI', label: 'FL-MIAMI — Miami' },
+  { value: 'FL-ORLANDO', label: 'FL-ORLANDO — Orlando' },
+];
+
+const AVAILABLE_STATES = [
+  { value: 'ALL', label: 'All States / National (Unrestricted)' },
+  { value: 'CA', label: 'California (CA)' },
+  { value: 'NY', label: 'New York (NY)' },
+  { value: 'FL', label: 'Florida (FL)' },
+  { value: 'NJ', label: 'New Jersey (NJ)' },
+  { value: 'CT', label: 'Connecticut (CT)' },
+  { value: 'TX', label: 'Texas (TX)' },
+];
 
 export default function UsersAdminPage() {
   const queryClient = useQueryClient();
@@ -26,15 +56,18 @@ export default function UsersAdminPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [userToSuspend, setUserToSuspend] = useState<any | null>(null);
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
+  const [userToEditScope, setUserToEditScope] = useState<any | null>(null);
+  const [editSite, setEditSite] = useState('ALL');
+  const [editState, setEditState] = useState('ALL');
 
   // Invite Form state
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.INTAKE_SPECIALIST);
-  const [site, setSite] = useState('SITE-NYC');
-  const [state, setState] = useState('NY');
-  const [legalEntity, setLegalEntity] = useState('LE-HEALS-NY');
+  const [site, setSite] = useState('ALL');
+  const [state, setState] = useState('ALL');
+  const [legalEntity, setLegalEntity] = useState('heals_main');
 
   // Fetch users list
   const { data, isLoading, refetch, isFetching } = useQuery<any>({
@@ -56,9 +89,9 @@ export default function UsersAdminPage() {
         roles: [selectedRole],
         scopes: [
           {
-            site: site || undefined,
-            state: state || undefined,
-            legalEntity: 'LE-HEALS-NY',
+            site: site || 'ALL',
+            state: state || 'ALL',
+            legalEntity: 'heals_main',
           },
         ],
       }),
@@ -72,6 +105,20 @@ export default function UsersAdminPage() {
     },
     onError: (err: any) => {
       toast.error('Invitation Failed', { description: err.message });
+    },
+  });
+
+  // Update Scopes Mutation
+  const updateScopeMutation = useMutation({
+    mutationFn: ({ id, scopes }: { id: string; scopes: any[] }) =>
+      apiClient.patch(`/users/${id}/scopes`, { scopes }),
+    onSuccess: () => {
+      toast.success('Location and jurisdiction scopes updated successfully.');
+      setUserToEditScope(null);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (err: any) => {
+      toast.error('Scope Update Failed', { description: err.message });
     },
   });
 
@@ -169,7 +216,7 @@ export default function UsersAdminPage() {
               className="h-8 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>{isInviteOpen ? 'Close Invite Form' : 'Invite New Staff'}</span>
+              <span>{isInviteOpen ? 'Close Form' : 'Invite'}</span>
             </Button>
           </PageHeaderActions>
         </PageHeader>
@@ -243,28 +290,32 @@ export default function UsersAdminPage() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="invSite" className="text-xs font-medium text-foreground">Geographic Site Scope</Label>
-                  <Select value={site} onValueChange={(val) => setSite(val || 'SITE-NYC')}>
+                  <Select value={site} onValueChange={(val) => setSite(val || 'ALL')}>
                     <SelectTrigger id="invSite" className="h-8 w-full text-xs bg-background">
                       <SelectValue placeholder="Select Site" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="SITE-NYC">SITE-NYC (New York City)</SelectItem>
-                      <SelectItem value="SITE-ALB">SITE-ALB (Albany)</SelectItem>
-                      <SelectItem value="SITE-BUF">SITE-BUF (Buffalo)</SelectItem>
+                      {AVAILABLE_SITES.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="invState" className="text-xs font-medium text-foreground">State Jurisdiction</Label>
-                  <Select value={state} onValueChange={(val) => setState(val || 'NY')}>
+                  <Select value={state} onValueChange={(val) => setState(val || 'ALL')}>
                     <SelectTrigger id="invState" className="h-8 w-full text-xs bg-background">
                       <SelectValue placeholder="Select State" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="NY">New York (NY)</SelectItem>
-                      <SelectItem value="NJ">New Jersey (NJ)</SelectItem>
-                      <SelectItem value="CT">Connecticut (CT)</SelectItem>
+                      {AVAILABLE_STATES.map((st) => (
+                        <SelectItem key={st.value} value={st.value}>
+                          {st.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -280,7 +331,7 @@ export default function UsersAdminPage() {
                   disabled={!email || !firstName || !lastName || inviteMutation.isPending}
                   className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-semibold"
                 >
-                  {inviteMutation.isPending ? 'Sending…' : 'Send Cryptographic Invite'}
+                  {inviteMutation.isPending ? 'Sending…' : 'Send Invite'}
                 </Button>
               </div>
             </CardContent>
@@ -331,7 +382,13 @@ export default function UsersAdminPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-muted-foreground font-medium text-[11px]">
-                          {u.sites?.join(', ') || 'All'} ({u.states?.join(', ') || 'NY'})
+                          {(() => {
+                            const uSites = u.scopes?.map((s: any) => s.site).filter(Boolean) || [];
+                            const uStates = u.scopes?.map((s: any) => s.state).filter(Boolean) || [];
+                            const siteDisplay = uSites.length === 0 || uSites.includes('ALL') ? 'All Sites' : uSites.join(', ');
+                            const stateDisplay = uStates.length === 0 || uStates.includes('ALL') ? 'All States' : uStates.join(', ');
+                            return `${siteDisplay} (${stateDisplay})`;
+                          })()}
                         </td>
                         <td className="py-3 px-4">
                           {u.isSuspended ? (
@@ -350,6 +407,23 @@ export default function UsersAdminPage() {
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setUserToEditScope(u);
+                                const existingSite = u.scopes?.[0]?.site || 'ALL';
+                                const existingState = u.scopes?.[0]?.state || 'ALL';
+                                setEditSite(existingSite);
+                                setEditState(existingState);
+                              }}
+                              className="h-7 text-xs px-2 font-medium text-foreground hover:bg-muted gap-1"
+                              title="Edit user territory scopes"
+                            >
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span>Scope</span>
+                            </Button>
+
                             {!u.isActive ? (
                               <>
                                 <Button
@@ -389,11 +463,10 @@ export default function UsersAdminPage() {
                                       });
                                     }
                                   }}
-                                  className={`h-7 text-xs px-2.5 font-medium ${
-                                    u.isSuspended
-                                      ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
-                                      : 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
-                                  }`}
+                                  className={`h-7 text-xs px-2.5 font-medium ${u.isSuspended
+                                    ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
+                                    : 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
+                                    }`}
                                 >
                                   {u.isSuspended ? 'Reactivate' : 'Suspend'}
                                 </Button>
@@ -461,6 +534,97 @@ export default function UsersAdminPage() {
             }
           }}
         />
+
+        {/* Edit Scope Modal Dialog */}
+        <Dialog open={!!userToEditScope} onOpenChange={(open) => !open && setUserToEditScope(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+                <MapPin className="h-4 w-4 text-primary" />
+                Configure Scopes & Territories
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Set geographic site scope and state jurisdiction for {userToEditScope?.firstName} {userToEditScope?.lastName} ({userToEditScope?.email}).
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="editSite" className="text-xs font-medium text-foreground">
+                  Geographic Site Scope
+                </Label>
+                <Select value={editSite} onValueChange={(val) => setEditSite(val || 'ALL')}>
+                  <SelectTrigger id="editSite" className="h-8 w-full text-xs bg-background">
+                    <SelectValue placeholder="Select Site Scope" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AVAILABLE_SITES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Controls which clinic facilities and referrals this staff member can access.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="editState" className="text-xs font-medium text-foreground">
+                  State Jurisdiction
+                </Label>
+                <Select value={editState} onValueChange={(val) => setEditState(val || 'ALL')}>
+                  <SelectTrigger id="editState" className="h-8 w-full text-xs bg-background">
+                    <SelectValue placeholder="Select State Jurisdiction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AVAILABLE_STATES.map((st) => (
+                      <SelectItem key={st.value} value={st.value}>
+                        {st.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Controls patient residence territory matching. Choose "All States" for national intake.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUserToEditScope(null)}
+                className="h-8 text-xs border-border"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={updateScopeMutation.isPending}
+                onClick={() => {
+                  if (userToEditScope) {
+                    updateScopeMutation.mutate({
+                      id: userToEditScope.id,
+                      scopes: [
+                        {
+                          site: editSite,
+                          state: editState,
+                          legalEntity: 'heals_main',
+                        },
+                      ],
+                    });
+                  }
+                }}
+                className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs font-semibold"
+              >
+                {updateScopeMutation.isPending ? 'Saving…' : 'Save Scopes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

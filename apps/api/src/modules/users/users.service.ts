@@ -349,6 +349,9 @@ export class UsersService {
       }
     });
 
+    // Invalidate cached scopes in Redis
+    await this.redis.del(`user:scopes:${id}`);
+
     this.logger.log(`Updated scopes for user ${id}: ${dto.scopes.length} scope entries`);
 
     return this.findById(id);

@@ -31,6 +31,14 @@ export class CommentsService {
     const allowedSites = user.scopes?.sites || [];
     const allowedEntities = user.scopes?.legalEntities || [];
 
+    const isUnrestricted =
+      allowedStates.includes('ALL') ||
+      allowedSites.includes('ALL') ||
+      allowedStates.includes('*') ||
+      allowedSites.includes('*');
+
+    if (isUnrestricted) return;
+
     if (
       allowedStates.length === 0 &&
       allowedSites.length === 0 &&

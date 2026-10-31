@@ -52,13 +52,20 @@ export class ReferralsService {
 
     // Validate scope if specified
     if (!isAdmin) {
-      if (dto.site && !user.scopes.sites.includes(dto.site)) {
+      const allowedSites = user.scopes?.sites || [];
+      const allowedStates = user.scopes?.states || [];
+      const allowedEntities = user.scopes?.legalEntities || [];
+      const hasAllSites = allowedSites.includes('ALL') || allowedSites.includes('*');
+      const hasAllStates = allowedStates.includes('ALL') || allowedStates.includes('*');
+      const hasAllEntities = allowedEntities.includes('ALL') || allowedEntities.includes('*');
+
+      if (dto.site && !hasAllSites && allowedSites.length > 0 && !allowedSites.includes(dto.site)) {
         throw new ForbiddenException(`User lacks scope for site ${dto.site}`);
       }
-      if (dto.state && !user.scopes.states.includes(dto.state)) {
+      if (dto.state && !hasAllStates && allowedStates.length > 0 && !allowedStates.includes(dto.state)) {
         throw new ForbiddenException(`User lacks scope for state ${dto.state}`);
       }
-      if (dto.legalEntity && !user.scopes.legalEntities.includes(dto.legalEntity)) {
+      if (dto.legalEntity && !hasAllEntities && allowedEntities.length > 0 && !allowedEntities.includes(dto.legalEntity)) {
         throw new ForbiddenException(`User lacks scope for legal entity ${dto.legalEntity}`);
       }
     }
@@ -178,51 +185,61 @@ export class ReferralsService {
 
     // 1. Apply Scope Constraints for non-admins (Fail Closed)
     if (!isAdmin) {
+      const allowedSites = user.scopes?.sites || [];
+      const allowedStates = user.scopes?.states || [];
+      const allowedEntities = user.scopes?.legalEntities || [];
+      const hasAllSites = allowedSites.includes('ALL') || allowedSites.includes('*');
+      const hasAllStates = allowedStates.includes('ALL') || allowedStates.includes('*');
+      const hasAllEntities = allowedEntities.includes('ALL') || allowedEntities.includes('*');
+
+      const isUnrestricted = hasAllSites || hasAllStates;
       const hasAnyScope =
-        (user.scopes?.sites?.length ?? 0) > 0 ||
-        (user.scopes?.states?.length ?? 0) > 0 ||
-        (user.scopes?.legalEntities?.length ?? 0) > 0;
+        isUnrestricted ||
+        allowedSites.length > 0 ||
+        allowedStates.length > 0 ||
+        allowedEntities.length > 0;
+
       if (!hasAnyScope) {
         return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
       }
 
       if (query.site) {
-        if (user.scopes?.sites && user.scopes.sites.length > 0) {
-          if (!user.scopes.sites.includes(query.site)) {
+        if (!hasAllSites && allowedSites.length > 0) {
+          if (!allowedSites.includes(query.site)) {
             return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
           }
           where.site = query.site;
         } else {
           where.site = query.site;
         }
-      } else if (user.scopes?.sites && user.scopes.sites.length > 0) {
-        where.site = { in: user.scopes.sites };
+      } else if (!hasAllSites && allowedSites.length > 0) {
+        where.site = { in: allowedSites };
       }
 
       if (query.state) {
-        if (user.scopes?.states && user.scopes.states.length > 0) {
-          if (!user.scopes.states.includes(query.state)) {
+        if (!hasAllStates && allowedStates.length > 0) {
+          if (!allowedStates.includes(query.state)) {
             return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
           }
           where.state = query.state;
         } else {
           where.state = query.state;
         }
-      } else if (user.scopes?.states && user.scopes.states.length > 0) {
-        where.state = { in: user.scopes.states };
+      } else if (!hasAllStates && allowedStates.length > 0) {
+        where.state = { in: allowedStates };
       }
 
       if (query.legalEntity) {
-        if (user.scopes?.legalEntities && user.scopes.legalEntities.length > 0) {
-          if (!user.scopes.legalEntities.includes(query.legalEntity)) {
+        if (!hasAllEntities && allowedEntities.length > 0) {
+          if (!allowedEntities.includes(query.legalEntity)) {
             return { data: [], total: 0, limit: query.limit ?? 20, offset: query.offset ?? 0 };
           }
           where.legalEntity = query.legalEntity;
         } else {
           where.legalEntity = query.legalEntity;
         }
-      } else if (user.scopes?.legalEntities && user.scopes.legalEntities.length > 0) {
-        where.legalEntity = { in: user.scopes.legalEntities };
+      } else if (!hasAllEntities && allowedEntities.length > 0) {
+        where.legalEntity = { in: allowedEntities };
       }
     } else {
       if (query.site) where.site = query.site;

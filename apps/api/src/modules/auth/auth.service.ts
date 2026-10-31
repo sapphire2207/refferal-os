@@ -582,6 +582,32 @@ export class AuthService {
   }
 
   /**
+   * Retrieves active scopes for a user with 5-minute Redis caching.
+   */
+  async getUserScopes(userId: string): Promise<{ sites: string[]; states: string[]; legalEntities: string[] }> {
+    const cacheKey = `user:scopes:${userId}`;
+
+    const cached = await this.redis.getJson<{ sites: string[]; states: string[]; legalEntities: string[] }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const userScopes = await this.prisma.userScope.findMany({
+      where: { userId },
+    });
+
+    const scopes = {
+      sites: [...new Set(userScopes.map((us: any) => us.site).filter(Boolean))] as string[],
+      states: [...new Set(userScopes.map((us: any) => us.state).filter(Boolean))] as string[],
+      legalEntities: [...new Set(userScopes.map((us: any) => us.legalEntity).filter(Boolean))] as string[],
+    };
+
+    await this.redis.setJson(cacheKey, scopes, 300);
+
+    return scopes;
+  }
+
+  /**
    * Validates if a session is currently active and not revoked/expired in Redis or DB.
    */
   async validateActiveSession(sessionId: string, userId: string): Promise<boolean> {

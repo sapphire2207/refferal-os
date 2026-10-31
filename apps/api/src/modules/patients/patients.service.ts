@@ -186,6 +186,14 @@ export class PatientsService {
     const allowedStates = user.scopes?.states || [];
     const allowedSites = user.scopes?.sites || [];
 
+    const isUnrestricted =
+      allowedStates.includes('ALL') ||
+      allowedSites.includes('ALL') ||
+      allowedStates.includes('*') ||
+      allowedSites.includes('*');
+
+    if (isUnrestricted) return;
+
     if (allowedStates.length === 0 && allowedSites.length === 0) {
       throw new ForbiddenException(
         'Access denied: You do not have an assigned location or territory scope.',
@@ -292,19 +300,15 @@ export class PatientsService {
       if (!isAdmin) {
         const allowedStates = user.scopes?.states || [];
         const allowedSites = user.scopes?.sites || [];
-        if (allowedStates.length === 0 && allowedSites.length === 0) {
-          return {
-            data: [],
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          };
-        }
 
-        if (query.state) {
-          const reqState = query.state.toUpperCase();
-          if (allowedStates.length > 0 && !allowedStates.includes(reqState)) {
+        const isUnrestricted =
+          allowedStates.includes('ALL') ||
+          allowedSites.includes('ALL') ||
+          allowedStates.includes('*') ||
+          allowedSites.includes('*');
+
+        if (!isUnrestricted) {
+          if (allowedStates.length === 0 && allowedSites.length === 0) {
             return {
               data: [],
               total: 0,
@@ -313,11 +317,28 @@ export class PatientsService {
               totalPages: 0,
             };
           }
-          where.state = reqState;
-        } else if (allowedStates.length > 0) {
-          where.state = { in: allowedStates };
-        } else if (allowedSites.length > 0) {
-          where.referrals = { some: { site: { in: allowedSites } } };
+
+          if (query.state) {
+            const reqState = query.state.toUpperCase();
+            if (allowedStates.length > 0 && !allowedStates.includes(reqState)) {
+              return {
+                data: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0,
+              };
+            }
+            where.state = reqState;
+          } else if (allowedStates.length > 0) {
+            where.state = { in: allowedStates };
+          } else if (allowedSites.length > 0) {
+            where.referrals = { some: { site: { in: allowedSites } } };
+          }
+        } else {
+          if (query.state) {
+            where.state = query.state.toUpperCase();
+          }
         }
       } else {
         if (query.state) {

@@ -26,11 +26,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
     }
 
-    // Get user permissions and attach to payload
-    const permissions = await this.authService.getUserPermissions(payload.userId);
+    // Get live user permissions and scopes
+    const [permissions, liveScopes] = await Promise.all([
+      this.authService.getUserPermissions(payload.userId),
+      this.authService.getUserScopes(payload.userId),
+    ]);
     
     return {
       ...payload,
+      scopes: liveScopes || payload.scopes,
       permissions,
     } as unknown as AuthTokenPayload;
   }

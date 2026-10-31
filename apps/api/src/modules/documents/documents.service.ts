@@ -89,6 +89,14 @@ export class DocumentsService {
     const allowedStates = user.scopes?.states || [];
     const allowedSites = user.scopes?.sites || [];
 
+    const isUnrestricted =
+      allowedStates.includes('ALL') ||
+      allowedSites.includes('ALL') ||
+      allowedStates.includes('*') ||
+      allowedSites.includes('*');
+
+    if (isUnrestricted) return;
+
     if (allowedStates.length === 0 && allowedSites.length === 0) {
       throw new ForbiddenException(
         'Access denied: You do not have an assigned location or territory scope.',
