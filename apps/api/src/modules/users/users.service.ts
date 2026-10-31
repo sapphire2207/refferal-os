@@ -159,6 +159,7 @@ export class UsersService {
     }
 
     const invitationToken = crypto.randomBytes(32).toString('hex');
+    const hashedInvitationToken = crypto.createHash('sha256').update(invitationToken).digest('hex');
     const invitationExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     const placeholderHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
 
@@ -170,7 +171,7 @@ export class UsersService {
           data: {
             firstName: dto.firstName,
             lastName: dto.lastName,
-            invitationToken,
+            invitationToken: hashedInvitationToken,
             invitationExpiresAt,
           },
         });
@@ -236,7 +237,7 @@ export class UsersService {
           passwordHash: placeholderHash,
           isActive: false,
           isSuspended: false,
-          invitationToken,
+          invitationToken: hashedInvitationToken,
           invitationExpiresAt,
         },
       });

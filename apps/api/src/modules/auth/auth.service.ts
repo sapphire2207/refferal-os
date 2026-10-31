@@ -402,11 +402,15 @@ export class AuthService {
    * Accepts administrative account invitation and sets up initial password.
    */
   async acceptInvitation(dto: AcceptInvitationDto) {
-    const hashedToken = crypto.createHash('sha256').update(dto.token).digest('hex');
+    const rawToken = dto.token ? dto.token.trim() : '';
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
     const user = await this.prisma.user.findFirst({
       where: {
-        invitationToken: hashedToken,
+        OR: [
+          { invitationToken: hashedToken },
+          { invitationToken: rawToken },
+        ],
         invitationExpiresAt: { gt: new Date() },
       },
       include: {
