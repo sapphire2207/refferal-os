@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { useAuth } from '@/providers/auth-context';
 import { canCreateReferrals } from '@/lib/permissions';
 import { AppLayout } from '@/components/app-layout';
@@ -12,12 +12,166 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Priority, UserRole } from '@heals/types';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, PlusCircle, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Loader2, ArrowLeft, PlusCircle, Search, Check, ShieldAlert, X } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
+// ─── Patient search combobox ───────────────────────────────────────────────────
+interface PatientResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth?: string;
+  medicalRecordNumber?: string;
+  phone?: string;
+}
+
+function PatientSearchCombobox({
+  value,
+  onChange,
+}: {
+  value: PatientResult | null;
+  onChange: (p: PatientResult | null) => void;
+}) {
+  const [inputVal, setInputVal] = useState('');
+  const [open, setOpen] = useState(false);
+  const debounced = useDebounce(inputVal, 300);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data, isFetching } = useQuery<any>({
+    queryKey: ['patient-search', debounced],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (debounced.trim()) params.set('search', debounced.trim());
+      params.set('limit', '10');
+      return apiClient.get<any>(`/patients?${params.toString()}`);
+    },
+    enabled: debounced.trim().length >= 1,
+    staleTime: 30_000,
+  });
+
+  const results: PatientResult[] = extractApiList<PatientResult>(data);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSelect = (patient: PatientResult) => {
+    onChange(patient);
+    setInputVal('');
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange(null);
+    setInputVal('');
+  };
+
+  if (value) {
+    // Show selected patient pill
+    return (
+      <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-muted/40 text-xs">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[9px]">
+          {value.firstName[0]}{value.lastName[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-semibold text-foreground truncate">{value.firstName} {value.lastName}</span>
+          {value.medicalRecordNumber && (
+            <span className="ml-2 text-muted-foreground tabular-nums">{value.medicalRecordNumber}</span>
+          )}
+          {value.dateOfBirth && (
+            <span className="ml-2 text-muted-foreground">
+              DOB: {new Date(value.dateOfBirth).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={handleClear}
+          className="ml-auto shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Clear patient selection"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          value={inputVal}
+          onChange={(e) => {
+            setInputVal(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search by name, MRN, or phone…"
+          className="h-9 pl-8 text-xs"
+          autoComplete="off"
+        />
+        {isFetching && (
+          <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        )}
+      </div>
+
+      {open && debounced.trim().length >= 1 && (
+        <div className="absolute z-50 mt-1 w-full rounded-md border border-border bg-popover shadow-lg overflow-hidden">
+          {results.length === 0 && !isFetching ? (
+            <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+              No patients found for &ldquo;{debounced}&rdquo;
+            </div>
+          ) : (
+            <ul className="max-h-56 overflow-y-auto divide-y divide-border/60">
+              {results.map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors text-left"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // prevent blur before select
+                      handleSelect(p);
+                    }}
+                  >
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-[9px]">
+                      {p.firstName[0]}{p.lastName[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-foreground">
+                        {p.firstName} {p.lastName}
+                      </div>
+                      <div className="text-muted-foreground tabular-nums truncate">
+                        {[
+                          p.medicalRecordNumber && `MRN: ${p.medicalRecordNumber}`,
+                          p.dateOfBirth && `DOB: ${new Date(p.dateOfBirth).toLocaleDateString()}`,
+                          p.phone,
+                        ].filter(Boolean).join(' · ')}
+                      </div>
+                    </div>
+                    <Check className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
 export default function NewReferralPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -26,54 +180,53 @@ export default function NewReferralPage() {
 
   const [patientMode, setPatientMode] = useState<'existing' | 'new'>('new');
 
-  // Patient Fields
+  // New patient fields (only what the API accepts)
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('UNSPECIFIED');
   const [phone, setPhone] = useState('');
-  const [ssn, setSsn] = useState('');
-  const [mrn, setMrn] = useState('');
-  const [patientId, setPatientId] = useState('');
+  const [medicalRecordNumber, setMedicalRecordNumber] = useState('');
+  const [email, setEmail] = useState('');
 
-  // Referral Fields
+  // Existing patient selection
+  const [selectedPatient, setSelectedPatient] = useState<PatientResult | null>(null);
+
+  // Referral fields (only what CreateReferralDto accepts)
   const [priority, setPriority] = useState<Priority>(Priority.ROUTINE);
-  const [site, setSite] = useState('SITE-NYC');
-  const [state, setState] = useState('NY');
-  const [legalEntity, setLegalEntity] = useState('LE-HEALS-NY');
-  const [referralSource, setReferralSource] = useState('Metro Hospital Care Coordinator');
+  const [referralSource, setReferralSource] = useState('');
+  const [referringProvider, setReferringProvider] = useState('');
+  const [referringFacility, setReferringFacility] = useState('');
+  const [insurancePayer, setInsurancePayer] = useState('');
   const [notes, setNotes] = useState('');
 
   const createReferralMutation = useMutation({
     mutationFn: async () => {
-      let resolvedPatientId = patientId;
+      let resolvedPatientId: string;
 
-      // If new patient mode, create patient first
       if (patientMode === 'new') {
+        // Only send fields the CreatePatientDto accepts
         const patientRes = await apiClient.post<{ id: string }>('/patients', {
-          firstName,
-          lastName,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
           dateOfBirth,
-          gender,
-          phone,
-          ssn: ssn || undefined,
-          mrn: mrn || `MRN-${Date.now().toString().slice(-6)}`,
-          site,
-          state,
-          legalEntity,
+          ...(phone.trim() && { phone: phone.trim() }),
+          ...(email.trim() && { email: email.trim() }),
+          ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
         });
         resolvedPatientId = patientRes.id;
+      } else {
+        if (!selectedPatient) throw new Error('Please select an existing patient.');
+        resolvedPatientId = selectedPatient.id;
       }
 
-      // Create referral in INTAKE stage
+      // Only send fields CreateReferralDto accepts — no site/state/legalEntity (those are scoped to user)
       return apiClient.post<{ id: string }>('/referrals', {
         patientId: resolvedPatientId,
         priority,
-        site,
-        state,
-        legalEntity,
-        referralSource,
-        notes,
+        ...(referralSource.trim() && { referralSource: referralSource.trim() }),
+        ...(referringProvider.trim() && { referringProvider: referringProvider.trim() }),
+        ...(referringFacility.trim() && { referringFacility: referringFacility.trim() }),
+        ...(insurancePayer.trim() && { insurancePayer: insurancePayer.trim() }),
       });
     },
     onSuccess: (data) => {
@@ -93,11 +246,20 @@ export default function NewReferralPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (patientMode === 'new' && (!firstName || !lastName || !dateOfBirth || !phone)) {
-      toast.error('Missing Patient Demographics', {
-        description: 'First name, last name, date of birth, and phone number are required.',
-      });
-      return;
+    if (patientMode === 'new') {
+      if (!firstName.trim() || !lastName.trim() || !dateOfBirth) {
+        toast.error('Missing Patient Demographics', {
+          description: 'First name, last name, and date of birth are required.',
+        });
+        return;
+      }
+    } else {
+      if (!selectedPatient) {
+        toast.error('No Patient Selected', {
+          description: 'Please search and select an existing patient.',
+        });
+        return;
+      }
     }
     createReferralMutation.mutate();
   };
@@ -149,7 +311,7 @@ export default function NewReferralPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Patient Information Section */}
+          {/* ── Patient Identification ─────────────────────────────── */}
           <Card className="border border-border/80">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -161,6 +323,7 @@ export default function NewReferralPage() {
                     Demographic profile and MRN tracking
                   </CardDescription>
                 </div>
+                {/* Mode toggle */}
                 <div className="flex bg-muted/60 p-0.5 rounded-md text-xs">
                   <button
                     type="button"
@@ -178,18 +341,17 @@ export default function NewReferralPage() {
                       patientMode === 'existing' ? 'bg-background shadow-2xs font-semibold' : 'text-muted-foreground'
                     }`}
                   >
-                    Existing ID
+                    Existing Patient
                   </button>
                 </div>
               </div>
             </CardHeader>
+
             <CardContent className="space-y-4">
               {patientMode === 'new' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs">
-                      First Name *
-                    </Label>
+                    <Label htmlFor="firstName" className="text-xs">First Name *</Label>
                     <Input
                       id="firstName"
                       value={firstName}
@@ -200,9 +362,7 @@ export default function NewReferralPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs">
-                      Last Name *
-                    </Label>
+                    <Label htmlFor="lastName" className="text-xs">Last Name *</Label>
                     <Input
                       id="lastName"
                       value={lastName}
@@ -213,9 +373,7 @@ export default function NewReferralPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="dob" className="text-xs">
-                      Date of Birth *
-                    </Label>
+                    <Label htmlFor="dob" className="text-xs">Date of Birth *</Label>
                     <Input
                       id="dob"
                       type="date"
@@ -226,77 +384,68 @@ export default function NewReferralPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="text-xs">
-                      Phone Number *
-                    </Label>
+                    <Label htmlFor="phone" className="text-xs">Phone Number</Label>
                     <Input
                       id="phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="(555) 234-5678"
-                      required
                       className="h-8 text-xs"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="mrn" className="text-xs">
-                      MRN (Medical Record #)
-                    </Label>
+                    <Label htmlFor="mrn" className="text-xs">MRN (Medical Record #)</Label>
                     <Input
                       id="mrn"
-                      value={mrn}
-                      onChange={(e) => setMrn(e.target.value)}
+                      value={medicalRecordNumber}
+                      onChange={(e) => setMedicalRecordNumber(e.target.value)}
                       placeholder="MRN-8921"
                       className="h-8 text-xs tabular-nums"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ssn" className="text-xs">
-                      SSN (Last 4 or Full)
-                    </Label>
+                    <Label htmlFor="email" className="text-xs">Patient Email</Label>
                     <Input
-                      id="ssn"
-                      value={ssn}
-                      onChange={(e) => setSsn(e.target.value)}
-                      placeholder="XXX-XX-1234"
-                      className="h-8 text-xs tabular-nums"
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="patient@example.com"
+                      className="h-8 text-xs"
                     />
                   </div>
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <Label htmlFor="patientId" className="text-xs">
-                    Patient UUID
-                  </Label>
-                  <Input
-                    id="patientId"
-                    value={patientId}
-                    onChange={(e) => setPatientId(e.target.value)}
-                    placeholder="Enter existing patient UUID"
-                    required
-                    className="h-8 text-xs tabular-nums"
+                  <Label className="text-xs">Search Existing Patient *</Label>
+                  <PatientSearchCombobox
+                    value={selectedPatient}
+                    onChange={setSelectedPatient}
                   />
+                  {!selectedPatient && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Type a name, MRN, or phone number to search registered patients.
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Clinical & Scoping Details */}
+          {/* ── Referral Classification ────────────────────────────── */}
           <Card className="border border-border/80">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold">
-                2. Referral Classification & Scope
+                2. Referral Classification
               </CardTitle>
               <CardDescription className="text-xs">
-                Clinical urgency, assigned location, and source
+                Clinical urgency, referring provider, and insurance details
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="priority" className="text-xs">
-                    Clinical Priority
-                  </Label>
+                  <Label htmlFor="priority" className="text-xs">Clinical Priority</Label>
                   <Select value={priority} onValueChange={(val) => val && setPriority(val as Priority)}>
                     <SelectTrigger id="priority" className="h-8 w-full text-xs bg-background">
                       <SelectValue placeholder="Select Priority" />
@@ -310,49 +459,48 @@ export default function NewReferralPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="site" className="text-xs">
-                    Operational Site
-                  </Label>
-                  <Select value={site} onValueChange={(val) => setSite(val || 'SITE-NYC')}>
-                    <SelectTrigger id="site" className="h-8 w-full text-xs bg-background">
-                      <SelectValue placeholder="Select Site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SITE-NYC">SITE-NYC (New York City)</SelectItem>
-                      <SelectItem value="SITE-ALB">SITE-ALB (Albany)</SelectItem>
-                      <SelectItem value="SITE-BUF">SITE-BUF (Buffalo)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="referralSource" className="text-xs">Referral Source</Label>
+                  <Input
+                    id="referralSource"
+                    value={referralSource}
+                    onChange={(e) => setReferralSource(e.target.value)}
+                    placeholder="e.g. Mount Sinai Care Coordination"
+                    className="h-8 text-xs"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="state" className="text-xs">
-                    State Jurisdiction
-                  </Label>
-                  <Select value={state} onValueChange={(val) => setState(val || 'NY')}>
-                    <SelectTrigger id="state" className="h-8 w-full text-xs bg-background">
-                      <SelectValue placeholder="Select State" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NY">New York (NY)</SelectItem>
-                      <SelectItem value="NJ">New Jersey (NJ)</SelectItem>
-                      <SelectItem value="CT">Connecticut (CT)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="referringProvider" className="text-xs">Referring Provider</Label>
+                  <Input
+                    id="referringProvider"
+                    value={referringProvider}
+                    onChange={(e) => setReferringProvider(e.target.value)}
+                    placeholder="Dr. John Smith"
+                    className="h-8 text-xs"
+                  />
                 </div>
-              </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="referralSource" className="text-xs">
-                  Referral Source / Coordinator
-                </Label>
-                <Input
-                  id="referralSource"
-                  value={referralSource}
-                  onChange={(e) => setReferralSource(e.target.value)}
-                  placeholder="e.g. Mount Sinai Care Coordination"
-                  className="h-8 text-xs"
-                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="referringFacility" className="text-xs">Referring Facility</Label>
+                  <Input
+                    id="referringFacility"
+                    value={referringFacility}
+                    onChange={(e) => setReferringFacility(e.target.value)}
+                    placeholder="Metro General Hospital"
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="insurancePayer" className="text-xs">Insurance Payer</Label>
+                  <Input
+                    id="insurancePayer"
+                    value={insurancePayer}
+                    onChange={(e) => setInsurancePayer(e.target.value)}
+                    placeholder="Blue Cross Blue Shield"
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">

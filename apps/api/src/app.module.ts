@@ -19,6 +19,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { WebsocketModule } from './modules/websocket/websocket.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { HealthController } from './health.controller';
+import { EmailModule } from './common/email/email.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { HealthController } from './health.controller';
     DatabaseModule,
     RedisModule,
     CommonModule,
+    EmailModule,
 
     // Feature modules
     AuthModule,

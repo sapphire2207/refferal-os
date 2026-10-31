@@ -33,6 +33,7 @@ export default function UsersAdminPage() {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.INTAKE_SPECIALIST);
   const [site, setSite] = useState('SITE-NYC');
   const [state, setState] = useState('NY');
+  const [legalEntity, setLegalEntity] = useState('LE-HEALS-NY');
 
   // Fetch users list
   const { data, isLoading, refetch, isFetching } = useQuery<any>({
@@ -75,12 +76,16 @@ export default function UsersAdminPage() {
         firstName,
         lastName,
         roles: [selectedRole],
-        sites: [site],
-        states: [state],
-        legalEntities: ['LE-HEALS-NY'],
+        scopes: [
+          {
+            site: site || undefined,
+            state: state || undefined,
+            legalEntity: 'LE-HEALS-NY',
+          },
+        ],
       }),
     onSuccess: () => {
-      toast.success('Invitation Sent with Cryptographic Token!');
+      toast.success('Invitation sent! An email with the setup link has been delivered.');
       setIsInviteOpen(false);
       setEmail('');
       setFirstName('');

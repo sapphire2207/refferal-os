@@ -12,6 +12,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { AuthService } from '../auth/auth.service';
+import { EmailService } from '../../common/email/email.service';
 import {
   CreateUserInviteDto,
   UpdateUserRolesDto,
@@ -31,6 +32,7 @@ export class UsersService {
     private readonly redis: RedisService,
     @Inject(forwardRef(() => AuthService))
     private readonly authService: AuthService,
+    private readonly emailService: EmailService,
   ) {}
 
   /**
@@ -199,6 +201,19 @@ export class UsersService {
 
       this.logger.log(`Refreshed invitation for existing inactive user ${email}`);
 
+      // Send invitation email (non-blocking — log failure but don't fail the request)
+      const primaryRole = dto.roles?.[0] ?? 'STAFF';
+      this.emailService
+        .sendInvitationEmail({
+          to: email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          role: primaryRole,
+          invitationToken,
+          expiresAt: invitationExpiresAt,
+        })
+        .catch((err) => this.logger.error(`Failed to send re-invite email to ${email}: ${err.message}`));
+
       return {
         id: existingUser.id,
         email,
@@ -251,6 +266,19 @@ export class UsersService {
     });
 
     this.logger.log(`Invited new user ${email} (ID: ${newUser.id})`);
+
+    // Send invitation email (non-blocking)
+    const primaryRole = dto.roles?.[0] ?? 'STAFF';
+    this.emailService
+      .sendInvitationEmail({
+        to: email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: primaryRole,
+        invitationToken,
+        expiresAt: invitationExpiresAt,
+      })
+      .catch((err) => this.logger.error(`Failed to send invite email to ${email}: ${err.message}`));
 
     return {
       id: newUser.id,
