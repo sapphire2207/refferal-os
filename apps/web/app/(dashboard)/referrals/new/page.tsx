@@ -36,6 +36,7 @@ import {
   UserCheck,
   UserPlus,
   Sparkles,
+  Building2,
 } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
 
@@ -285,6 +286,25 @@ export default function NewReferralPage() {
   const [insurancePayer, setInsurancePayer] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Location scope state
+  const allowedSites = (user?.scopes?.sites || user?.sites || []).filter(
+    (s: string) => s && s !== 'ALL' && s !== '*'
+  );
+  const allowedStates = (user?.scopes?.states || user?.states || []).filter(
+    (s: string) => s && s !== 'ALL' && s !== '*'
+  );
+  const allowedEntities = (user?.scopes?.legalEntities || user?.legalEntities || []).filter(
+    (e: string) => e && e !== 'ALL' && e !== '*'
+  );
+
+  const [operatingSite, setOperatingSite] = useState<string>('');
+
+  useEffect(() => {
+    if (!operatingSite && allowedSites.length > 0) {
+      setOperatingSite(allowedSites[0]);
+    }
+  }, [allowedSites, operatingSite]);
+
   // Duplicate patient resolution state
   const [detectedDuplicates, setDetectedDuplicates] = useState<DuplicateMatch[] | null>(null);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
@@ -337,17 +357,17 @@ export default function NewReferralPage() {
         resolvedPatientId = selectedPatient.id;
       }
 
-      // Resolve user's operational location scope
-      const primarySite = user?.sites?.find((s: string) => s !== 'ALL' && s !== '*') || 'Site-A';
-      const primaryState = user?.states?.find((s: string) => s !== 'ALL' && s !== '*') || 'CA';
-      const primaryLegalEntity = user?.legalEntities?.find((e: string) => e !== 'ALL' && e !== '*') || 'legal-entity-1';
+      // Resolve user's operational location scope from user scopes or state
+      const resolvedSite = operatingSite || allowedSites[0] || undefined;
+      const resolvedState = allowedStates[0] || 'CA';
+      const resolvedLegalEntity = allowedEntities[0] || 'heals_main';
 
       return apiClient.post<{ id: string }>('/referrals', {
         patientId: resolvedPatientId,
         priority,
-        site: primarySite,
-        state: primaryState,
-        legalEntity: primaryLegalEntity,
+        ...(resolvedSite && { site: resolvedSite }),
+        ...(resolvedState && { state: resolvedState }),
+        ...(resolvedLegalEntity && { legalEntity: resolvedLegalEntity }),
         ...(referralSource.trim() && { referralSource: referralSource.trim() }),
         ...(referringProvider.trim() && { referringProvider: referringProvider.trim() }),
         ...(referringFacility.trim() && { referringFacility: referringFacility.trim() }),
@@ -363,10 +383,28 @@ export default function NewReferralPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
       router.push(`/referrals/${data.id}`);
     },
-    onError: (err: any) => {
+    onError: async (err: any) => {
       // Catch duplicate conflict and prompt interactive resolution dialog
-      if (err.status === 409 && (err.data?.duplicates?.length > 0 || err.message?.includes('duplicate'))) {
-        const dups: DuplicateMatch[] = err.data?.duplicates || [];
+      const isDuplicate =
+        err.status === 409 ||
+        err.statusCode === 409 ||
+        err.message?.toLowerCase().includes('duplicate');
+
+      if (isDuplicate) {
+        let dups: DuplicateMatch[] = err.data?.duplicates || [];
+        if (!dups || dups.length === 0) {
+          try {
+            dups = await apiClient.post<DuplicateMatch[]>('/patients/check-duplicates', {
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              dateOfBirth,
+              ...(phone.trim() && { phone: phone.trim() }),
+              ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
+            });
+          } catch {
+            dups = [];
+          }
+        }
         setDetectedDuplicates(dups);
         setShowDuplicateDialog(true);
         return;
@@ -628,6 +666,38 @@ export default function NewReferralPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Operating Facility / Clinic */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="site" className="text-xs flex items-center justify-between">
+                    <span>Operating Site</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      HIPAA Facility Scope
+                    </span>
+                  </Label>
+                  {allowedSites.length > 1 ? (
+                    <Select value={operatingSite} onValueChange={(val) => val && setOperatingSite(val)}>
+                      <SelectTrigger id="site" className="h-8 w-full text-xs bg-background">
+                        <SelectValue placeholder="Select Clinic Facility" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allowedSites.map((site) => (
+                          <SelectItem key={site} value={site}>
+                            {site}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="flex items-center gap-2 px-2.5 h-8 rounded-md border border-border/80 bg-muted/30 text-xs text-foreground font-medium">
+                      <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="truncate">{operatingSite || allowedSites[0] || 'main (Default Clinic)'}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+                        {allowedStates[0] || 'CA'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="priority" className="text-xs">Clinical Priority</Label>
                   <Select value={priority} onValueChange={(val) => val && setPriority(val as Priority)}>

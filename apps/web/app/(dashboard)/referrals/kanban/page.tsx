@@ -118,8 +118,8 @@ export default function ReferralsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Default to 'table' (Data Table) as primary view
-  const [viewMode, setViewMode] = useState<'table' | 'board'>('table');
+  // Default to 'board' (Kanban Visualizer) as primary view for this route
+  const [viewMode, setViewMode] = useState<'table' | 'board'>('board');
 
   // High-power multi-field filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -611,6 +611,7 @@ export default function ReferralsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Sites</SelectItem>
+                  <SelectItem value="main">main</SelectItem>
                   <SelectItem value="Site-A">Site-A</SelectItem>
                   <SelectItem value="Site-B">Site-B</SelectItem>
                 </SelectContent>

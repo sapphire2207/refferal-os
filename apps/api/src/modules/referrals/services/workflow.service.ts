@@ -29,6 +29,7 @@ import {
 } from '../dto/transition-response.dto';
 import { AssignmentRequestDto } from '../dto/assignment.dto';
 import { UpdateWorkStatusDto } from '../dto/work-status.dto';
+import { ForwardToReviewDto, ReviewDecisionDto } from '../dto/forward-review.dto';
 import {
   ALLOWED_TRANSITIONS,
   WORK_STATUS_TRANSITIONS,
@@ -545,6 +546,247 @@ export class WorkflowService {
   }
 
   /**
+   * Forward referral from INTAKE to CLINICAL_REVIEW
+   * Locks the referral for intake specialist (status becomes PENDING_REVIEW)
+   */
+  async forwardToReview(
+    referralId: string,
+    dto: ForwardToReviewDto,
+    user: AuthTokenPayload,
+  ): Promise<any> {
+    this.logger.log(`Forwarding referral ${referralId} to clinical review by user ${user.userId}`);
+
+    const referral = await this.prisma.referral.findUnique({
+      where: { id: referralId },
+    });
+
+    if (!referral) {
+      throw new NotFoundException(`Referral with ID ${referralId} not found`);
+    }
+
+    // Validate user can forward (intake specialist)
+    const isIntake = user.roles.includes(UserRole.INTAKE_SPECIALIST as any);
+    const isAdmin = user.roles.includes(UserRole.ADMIN as any);
+    if (!isIntake && !isAdmin) {
+      throw new ForbiddenException('Only intake specialists can forward referrals to review');
+    }
+
+    // Check scope
+    const hasScope = await this.validationService.checkScope(user, referral);
+    if (!hasScope) {
+      throw new ForbiddenException('User lacks scope access to this referral');
+    }
+
+    // Validate current state
+    if (referral.pipelineStage !== 'INTAKE') {
+      throw new BadRequestException(`Referral must be in INTAKE stage to forward (currently in ${referral.pipelineStage})`);
+    }
+
+    if (referral.workStatus === 'PENDING_REVIEW') {
+      throw new BadRequestException('Referral is already pending review');
+    }
+
+    // Version check
+    if (referral.version !== dto.version) {
+      throw new VersionConflictException(dto.version, referral.version, referral);
+    }
+
+    // Validate required fields
+    const requiredFields = ['patientId', 'referralSource', 'insurancePayer'];
+    const missing = requiredFields.filter(field => !referral[field as keyof typeof referral]);
+    if (missing.length > 0) {
+      throw new BadRequestException(`Required fields missing: ${missing.join(', ')}`);
+    }
+
+    // Execute transition
+    const nextVersion = referral.version + 1;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.referral.update({
+        where: { id: referralId },
+        data: {
+          pipelineStage: 'CLINICAL_REVIEW' as any,
+          workStatus: 'PENDING_REVIEW' as any,
+          version: nextVersion,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.workflowTransition.create({
+        data: {
+          referralId,
+          fromStage: 'INTAKE' as any,
+          toStage: 'CLINICAL_REVIEW' as any,
+          fromStatus: referral.workStatus,
+          toStatus: 'PENDING_REVIEW' as any,
+          transitionedBy: user.userId,
+          reason: dto.notes || 'Forwarded to clinical review',
+          metadata: {},
+          transitionedAt: new Date(),
+        },
+      });
+
+      await this.assignmentService.assignToRoleQueue(
+        referralId,
+        UserRole.CLINICAL_REVIEWER as any,
+        'Forwarded to clinical review',
+        user.userId,
+        tx,
+      );
+
+      await this.eventService.enqueueEvent(
+        'referral.forwarded_to_review',
+        referralId,
+        { referralId, fromStage: 'INTAKE', toStage: 'CLINICAL_REVIEW', forwardedBy: user.userId, timestamp: new Date().toISOString() },
+        tx,
+      );
+
+      return updated;
+    });
+
+    try {
+      await this.redis.del(`referral:${referralId}`);
+      await this.redis.delPattern('dashboard:metrics:*');
+      await this.redis.delPattern('referral:list:*');
+    } catch {}
+
+    return { success: true, referral: updated };
+  }
+
+  /**
+   * Clinical reviewer makes decision: ACCEPT, SEND_BACK, or REJECT
+   */
+  async reviewDecision(
+    referralId: string,
+    dto: ReviewDecisionDto,
+    user: AuthTokenPayload,
+  ): Promise<any> {
+    this.logger.log(`Review decision ${dto.decision} for referral ${referralId} by user ${user.userId}`);
+
+    const referral = await this.prisma.referral.findUnique({
+      where: { id: referralId },
+    });
+
+    if (!referral) {
+      throw new NotFoundException(`Referral with ID ${referralId} not found`);
+    }
+
+    const isReviewer = user.roles.some(r => 
+      r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR || r === UserRole.ADMIN
+    );
+    if (!isReviewer) {
+      throw new ForbiddenException('Only clinical reviewers can make review decisions');
+    }
+
+    const hasScope = await this.validationService.checkScope(user, referral);
+    if (!hasScope) {
+      throw new ForbiddenException('User lacks scope access to this referral');
+    }
+
+    if (referral.pipelineStage !== 'CLINICAL_REVIEW') {
+      throw new BadRequestException(`Referral must be in CLINICAL_REVIEW stage (currently in ${referral.pipelineStage})`);
+    }
+
+    if (referral.workStatus !== 'PENDING_REVIEW') {
+      throw new BadRequestException(`Referral must be in PENDING_REVIEW status (currently ${referral.workStatus})`);
+    }
+
+    if (referral.version !== dto.version) {
+      throw new VersionConflictException(dto.version, referral.version, referral);
+    }
+
+    if ((dto.decision === 'SEND_BACK' || dto.decision === 'REJECT') && !dto.reason?.trim()) {
+      throw new BadRequestException(`Reason is required when ${dto.decision === 'SEND_BACK' ? 'sending back' : 'rejecting'} a referral`);
+    }
+
+    const nextVersion = referral.version + 1;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      let newStage: string;
+      let newStatus: string;
+      let newOutcome: string | null = null;
+      let assignToRole: any = null;
+
+      if (dto.decision === 'ACCEPT') {
+        newStage = 'SCHEDULING';
+        newStatus = 'APPROVED_FOR_SCHEDULING';
+        assignToRole = UserRole.OFFICE_MANAGER;
+      } else if (dto.decision === 'SEND_BACK') {
+        newStage = 'INTAKE';
+        newStatus = 'RETURNED_TO_INTAKE';
+        assignToRole = UserRole.INTAKE_SPECIALIST;
+      } else {
+        newStage = 'CLINICAL_REVIEW';
+        newStatus = 'REJECTED';
+        newOutcome = 'REJECTED';
+      }
+
+      const updated = await tx.referral.update({
+        where: { id: referralId },
+        data: {
+          pipelineStage: newStage as any,
+          workStatus: newStatus as any,
+          ...(newOutcome && { caseOutcome: newOutcome as any }),
+          version: nextVersion,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.clinicalReview.create({
+        data: {
+          referralId,
+          reviewerId: user.userId,
+          decision: dto.decision === 'SEND_BACK' ? 'RETURN' : dto.decision,
+          reason: dto.reason || null,
+          notes: dto.notes || null,
+          reviewedAt: new Date(),
+        },
+      });
+
+      await tx.workflowTransition.create({
+        data: {
+          referralId,
+          fromStage: 'CLINICAL_REVIEW' as any,
+          toStage: newStage as any,
+          fromStatus: 'PENDING_REVIEW' as any,
+          toStatus: newStatus as any,
+          transitionedBy: user.userId,
+          reason: dto.reason || `Clinical review: ${dto.decision}`,
+          metadata: { decision: dto.decision },
+          transitionedAt: new Date(),
+        },
+      });
+
+      if (assignToRole) {
+        await this.assignmentService.assignToRoleQueue(
+          referralId,
+          assignToRole,
+          `Assigned after clinical review: ${dto.decision}`,
+          user.userId,
+          tx,
+        );
+      }
+
+      await this.eventService.enqueueEvent(
+        `referral.review_${dto.decision.toLowerCase()}`,
+        referralId,
+        { referralId, decision: dto.decision, newStage, newStatus, reviewedBy: user.userId, reason: dto.reason, timestamp: new Date().toISOString() },
+        tx,
+      );
+
+      return updated;
+    });
+
+    try {
+      await this.redis.del(`referral:${referralId}`);
+      await this.redis.delPattern('dashboard:metrics:*');
+      await this.redis.delPattern('referral:list:*');
+    } catch {}
+
+    return { success: true, referral: updated, decision: dto.decision };
+  }
+
+  /**
    * Assigns a referral to a user or a role queue.
    * 
    * @param dto - AssignmentRequestDto
@@ -557,233 +799,75 @@ export class WorkflowService {
     dto: AssignmentRequestDto,
     user: AuthTokenPayload,
   ): Promise<Referral> {
-    this.logger.log(
-      `Assigning referral ${referralId} (userId: ${dto.userId}, role: ${dto.role}) by user ${user.userId}`,
-    );
-
-    const referral = await this.prisma.referral.findUnique({
-      where: { id: referralId },
-    });
-
-    if (!referral) {
-      throw new NotFoundException(`Referral with ID ${referralId} not found`);
-    }
-
-    // Check assigner authorization
-    const isAssignerAdmin = user.roles.includes(UserRole.ADMIN);
-    const hasAssignPermission =
-      isAssignerAdmin ||
-      user.roles.some((r) =>
-        [
-          UserRole.CLINICAL_COORDINATOR,
-          UserRole.OFFICE_MANAGER,
-          UserRole.INTAKE_SPECIALIST,
-          UserRole.CLINICAL_REVIEWER,
-          UserRole.SCHEDULER,
-        ].includes(r),
-      );
-
-    if (!hasAssignPermission) {
-      throw new ForbiddenException('User lacks permission to assign referrals');
-    }
-
+    const referral = await this.prisma.referral.findUnique({ where: { id: referralId } });
+    if (!referral) throw new NotFoundException(`Referral with ID ${referralId} not found`);
+    
     const hasScope = await this.validationService.checkScope(user, referral);
-    if (!hasScope) {
-      throw new ForbiddenException('User lacks scope access to this referral');
-    }
+    if (!hasScope) throw new ForbiddenException('User lacks scope access to this referral');
 
-    // Perform assignment
     if (dto.userId) {
-      await this.assignmentService.assignToUser(
-        referralId,
-        dto.userId,
-        dto.reason,
-        user.userId,
-      );
+      await this.assignmentService.assignToUser(referralId, dto.userId, dto.reason, user.userId);
     } else if (dto.role) {
-      await this.assignmentService.assignToRoleQueue(
-        referralId,
-        dto.role,
-        dto.reason,
-        user.userId,
-      );
+      await this.assignmentService.assignToRoleQueue(referralId, dto.role, dto.reason, user.userId);
     } else {
-      throw new BadRequestException('Either userId or role must be provided for assignment');
+      throw new BadRequestException('Either userId or role must be provided');
     }
 
-    // Emit assignment event
     await this.eventService.enqueueEvent('referral.assigned', referralId, {
-      referralId,
-      assignedTo: dto.userId || null,
-      assignedRole: dto.role || null,
-      assignedBy: user.userId,
-      reason: dto.reason,
-      timestamp: new Date().toISOString(),
+      referralId, assignedTo: dto.userId || null, assignedRole: dto.role || null, 
+      assignedBy: user.userId, reason: dto.reason, timestamp: new Date().toISOString(),
     });
 
-    // Invalidate caches
+    try {
+      await this.redis.del(`referral:${referralId}`);
+      await this.redis.delPattern('dashboard:metrics:*');
+    } catch {}
+
+    return (await this.prisma.referral.findUnique({ where: { id: referralId } })) as Referral;
+  }
+
+  async getWorkflowHistory(referralId: string, user: AuthTokenPayload, pagination?: { limit?: number; offset?: number }): Promise<any[]> {
+    const referral = await this.prisma.referral.findUnique({ where: { id: referralId } });
+    if (!referral) throw new NotFoundException(`Referral with ID ${referralId} not found`);
+    
+    const hasScope = await this.validationService.checkScope(user, referral);
+    if (!hasScope) throw new ForbiddenException('User lacks scope access to this referral');
+
+    return this.prisma.workflowTransition.findMany({
+      where: { referralId },
+      orderBy: { transitionedAt: 'desc' },
+      take: pagination?.limit || 100,
+      skip: pagination?.offset || 0,
+    });
+  }
+
+  // Private helpers
+  private async checkIdempotency(key: string, requestHash: string): Promise<any | null> {
+    const redisKey = `idempotency:${key}`;
+    try {
+      const cached = await this.redis.getJson<any>(redisKey);
+      if (cached && cached.requestHash !== requestHash) {
+        throw new ConflictException(`Idempotency key '${key}' was already used with a different request`);
+      }
+      return cached?.result || null;
+    } catch (e) {
+      if (e instanceof ConflictException) throw e;
+      return null;
+    }
+  }
+
+  private async postCommitActions(referralId: string, idempotencyKey?: string, requestHash?: string, result?: any): Promise<void> {
+    if (idempotencyKey && result && requestHash) {
+      const redisKey = `idempotency:${idempotencyKey}`;
+      try {
+        await this.redis.setJson(redisKey, { requestHash, result }, 86400);
+      } catch {}
+    }
+
     try {
       await this.redis.del(`referral:${referralId}`);
       await this.redis.delPattern('dashboard:metrics:*');
       await this.redis.delPattern('referral:list:*');
     } catch {}
-
-    return (await this.prisma.referral.findUnique({
-      where: { id: referralId },
-    })) as Referral;
-  }
-
-  /**
-   * Retrieves full chronological workflow audit history for a referral.
-   * 
-   * @param referralId - Referral ID to query
-   * @param user - Authenticated user payload
-   * @returns Array of WorkflowTransition records
-   */
-  async getWorkflowHistory(
-    referralId: string,
-    user: AuthTokenPayload,
-    pagination?: { limit?: number; offset?: number },
-  ): Promise<WorkflowTransition[]> {
-    this.logger.debug(
-      `Retrieving workflow history for referral ${referralId} by user ${user.userId}`,
-    );
-
-    const referral = await this.prisma.referral.findUnique({
-      where: { id: referralId },
-    });
-
-    if (!referral) {
-      throw new NotFoundException(`Referral with ID ${referralId} not found`);
-    }
-
-    const hasScope = await this.validationService.checkScope(user, referral);
-    if (!hasScope) {
-      throw new ForbiddenException('User lacks scope access to this referral');
-    }
-
-    return this.prisma.workflowTransition.findMany({
-      where: { referralId },
-      orderBy: { transitionedAt: 'asc' },
-      take: pagination?.limit,
-      skip: pagination?.offset,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
-  }
-
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * Checks both Redis and DB IdempotencyKey records for existing response.
-   */
-  private async checkIdempotency(
-    key: string,
-    requestHash: string,
-  ): Promise<TransitionResultDto | null> {
-    const redisKey = `idempotency:${key}`;
-    try {
-      const cached = await this.redis.getJson<{ requestHash: string; result: TransitionResultDto }>(redisKey);
-      if (cached) {
-        if (cached.requestHash && cached.requestHash !== requestHash) {
-          throw new ConflictException(
-            `Idempotency key '${key}' was already used with a different request payload`,
-          );
-        }
-        return cached.result || (cached as unknown as TransitionResultDto);
-      }
-    } catch (e) {
-      if (e instanceof ConflictException) throw e;
-      this.logger.warn(`Redis idempotency read failed: ${e.message}`);
-    }
-
-    // Fallback to database IdempotencyKey table
-    try {
-      const dbRecord = await this.prisma.idempotencyKey.findUnique({
-        where: { key },
-      });
-
-      if (dbRecord) {
-        if (dbRecord.requestHash !== requestHash) {
-          throw new ConflictException(
-            `Idempotency key '${key}' was already used with a different request payload`,
-          );
-        }
-
-        if (dbRecord.expiresAt > new Date()) {
-          return dbRecord.responseBody as unknown as TransitionResultDto;
-        }
-      }
-    } catch (e) {
-      if (e instanceof ConflictException) throw e;
-      this.logger.warn(`DB idempotency check failed: ${e.message}`);
-    }
-
-    return null;
-  }
-
-  /**
-   * Post-commit actions: Cache storage and cache invalidation.
-   */
-  private async postCommitActions(
-    referralId: string,
-    idempotencyKey?: string,
-    requestHash?: string,
-    result?: TransitionResultDto,
-  ): Promise<void> {
-    // 1. Store Idempotency result
-    if (idempotencyKey && result && requestHash) {
-      const redisKey = `idempotency:${idempotencyKey}`;
-      try {
-        await this.redis.setJson(
-          redisKey,
-          { requestHash, result },
-          this.IDEMPOTENCY_TTL_SECONDS,
-        );
-      } catch (e) {
-        this.logger.warn(`Failed to cache idempotency key in Redis: ${e.message}`);
-      }
-
-      try {
-        const expiresAt = new Date(Date.now() + this.IDEMPOTENCY_TTL_SECONDS * 1000);
-        await this.prisma.idempotencyKey.upsert({
-          where: { key: idempotencyKey },
-          create: {
-            key: idempotencyKey,
-            requestHash,
-            responseStatus: 200,
-            responseBody: result as unknown as Prisma.JsonObject,
-            expiresAt,
-          },
-          update: {
-            responseBody: result as unknown as Prisma.JsonObject,
-            expiresAt,
-          },
-        });
-      } catch (e) {
-        this.logger.warn(`Failed to persist idempotency key in DB: ${e.message}`);
-      }
-    }
-
-    // 2. Invalidate cache tags
-    try {
-      await this.redis.del(`referral:${referralId}`);
-      await this.redis.del('dashboard:metrics');
-      await this.redis.del('dashboard:workqueues');
-      await this.redis.delPattern('dashboard:metrics:*');
-      await this.redis.delPattern('referral:list:*');
-    } catch (e) {
-      this.logger.warn(`Cache invalidation error: ${e.message}`);
-    }
   }
 }

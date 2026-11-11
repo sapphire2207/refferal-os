@@ -224,7 +224,7 @@ export default function DashboardPage() {
         )}
 
         {/* ROW 1: 4 Key Metric Cards (Top-Tier SaaS Visual Hierarchy) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Total Active Pipeline"
             value={metrics?.totalActive ?? totalCount}
@@ -268,7 +268,7 @@ export default function DashboardPage() {
             isLoading={isMetricsLoading && !metrics}
             subtext="Encounter bookings on schedule"
           />
-        </div>
+        </div> */}
 
         {/* ROW 2: Big Chart Card (Lush Clinical Azure & Vital Emerald Area Chart) */}
         <Card className="rounded-xl border border-border/80 bg-card shadow-xs overflow-hidden">
@@ -292,33 +292,30 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setTimeRange('3m')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                  timeRange === '3m'
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeRange === '3m'
                     ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Last 3 months
               </button>
               <button
                 type="button"
                 onClick={() => setTimeRange('30d')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                  timeRange === '30d'
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeRange === '30d'
                     ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Last 30 days
               </button>
               <button
                 type="button"
                 onClick={() => setTimeRange('7d')}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                  timeRange === '7d'
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${timeRange === '7d'
                     ? 'bg-background text-foreground shadow-xs font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 Last 7 days
               </button>

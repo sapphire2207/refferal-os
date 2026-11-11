@@ -166,9 +166,13 @@ enum PipelineStage {
 enum WorkStatus {
   PENDING
   IN_PROGRESS
+  PENDING_REVIEW
+  RETURNED_TO_INTAKE
+  APPROVED_FOR_SCHEDULING
   ON_HOLD
   BLOCKED_NEEDS_INFO
   COMPLETED
+  REJECTED
 
   @@map("work_status")
 }

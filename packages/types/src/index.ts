@@ -11,9 +11,13 @@ export enum PipelineStage {
 export enum WorkStatus {
   PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  RETURNED_TO_INTAKE = 'RETURNED_TO_INTAKE',
+  APPROVED_FOR_SCHEDULING = 'APPROVED_FOR_SCHEDULING',
   ON_HOLD = 'ON_HOLD',
   BLOCKED_NEEDS_INFO = 'BLOCKED_NEEDS_INFO',
   COMPLETED = 'COMPLETED',
+  REJECTED = 'REJECTED',
 }
 
 export enum CaseOutcome {
@@ -88,12 +92,18 @@ export interface User {
   firstName: string;
   lastName: string;
   roles: UserRole[];
-  sites: string[];
-  states: string[];
-  legalEntities: string[];
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  sites?: string[];
+  states?: string[];
+  legalEntities?: string[];
+  scopes?: {
+    sites: string[];
+    states: string[];
+    legalEntities: string[];
+  };
+  isActive?: boolean;
+  mfaEnabled?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface AuthTokenPayload {

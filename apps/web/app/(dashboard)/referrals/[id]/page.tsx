@@ -37,7 +37,7 @@ import { WorkStatusBadge, PriorityBadge, PipelineStageBadge } from '@/components
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/state-views';
 import { ConfirmDangerDialog } from '@/components/ui/confirm-danger-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PipelineStage, WorkStatus, Priority, ClinicalReviewDecision, NoteReviewDecision, DocumentType } from '@heals/types';
+import { PipelineStage, WorkStatus, Priority, ClinicalReviewDecision, NoteReviewDecision, DocumentType, UserRole } from '@heals/types';
 import { useAuth } from '@/providers/auth-context';
 import { canTransitionStage, canReviewNotes } from '@/lib/permissions';
 import { toast } from 'sonner';
@@ -63,7 +63,7 @@ export default function ReferralDetailPage() {
 
   const handleDownloadDoc = async (doc: any) => {
     try {
-      toast.info('Starting document download…');
+      toast.info('Starting document downloadΓÇª');
       await apiClient.downloadBlob(
         `/documents/${doc.id}/download`,
         doc.originalFilename || doc.originalName || 'document',
@@ -116,20 +116,57 @@ export default function ReferralDetailPage() {
     },
   });
 
-  // Clinical Review Decision Mutation
-  const reviewMutation = useMutation({
+  // Forward to Clinical Review Mutation (Intake Specialist)
+  const forwardMutation = useMutation({
     mutationFn: () =>
-      apiClient.post('/clinical-review', {
-        referralId: id,
-        decision: reviewDecision,
-        reason: reviewNotes.trim() || (reviewDecision === ClinicalReviewDecision.ACCEPT ? 'Clinical criteria satisfied' : undefined),
-        notes: reviewNotes.trim() || undefined,
+      apiClient.post(`/referrals/${id}/forward-to-review`, {
+        version: referral.version,
+        notes: 'Intake demographic and payer verification complete',
       }),
+    onSuccess: () => {
+      toast.success('Referral forwarded to Clinical Review', {
+        description: 'Intake data is now locked while under clinical determination.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['referral', id] });
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-intake'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-review'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+    },
+    onError: (err: any) => {
+      toast.error('Forward to Review Failed', {
+        description: err.message || 'Please check required fields before forwarding.',
+      });
+    },
+  });
+
+  // Authoritative Clinical Review Decision Mutation (Reviewer)
+  const reviewMutation = useMutation({
+    mutationFn: async () => {
+      const decisionMapped =
+        reviewDecision === ClinicalReviewDecision.ACCEPT
+          ? 'ACCEPT'
+          : reviewDecision === ClinicalReviewDecision.RETURN
+            ? 'SEND_BACK'
+            : 'REJECT';
+
+      return apiClient.post(`/referrals/${id}/review-decision`, {
+        version: referral.version,
+        decision: decisionMapped,
+        reason: reviewNotes.trim() || undefined,
+        notes: reviewNotes.trim() || undefined,
+      });
+    },
     onSuccess: () => {
       toast.success(`Clinical Review recorded: ${reviewDecision}`);
       setReviewNotes('');
+      setShowRejectConfirm(false);
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-intake'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-review'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     },
     onError: (err: any) => {
@@ -176,7 +213,7 @@ export default function ReferralDetailPage() {
     return (
       <AppLayout title="Referral Details">
         <div className="space-y-6 max-w-6xl mx-auto py-8">
-          <LoadingState message="Loading clinical referral details and gate history…" />
+          <LoadingState message="Loading clinical referral details and gate historyΓÇª" />
         </div>
       </AppLayout>
     );
@@ -232,7 +269,7 @@ export default function ReferralDetailPage() {
               <PriorityBadge priority={referral.priority} />
             </div>
             <PageHeaderDescription className="tabular-nums">
-              DOB: {referral.patient?.dateOfBirth || 'N/A'} • MRN: {referral.patient?.mrn || 'N/A'} • Site: {referral.site} ({referral.state}) • Ledger Version: v{referral.version}
+              DOB: {referral.patient?.dateOfBirth || 'N/A'} ΓÇó MRN: {referral.patient?.mrn || 'N/A'} ΓÇó Site: {referral.site} ({referral.state}) ΓÇó Ledger Version: v{referral.version}
             </PageHeaderDescription>
           </div>
 
@@ -341,17 +378,13 @@ export default function ReferralDetailPage() {
                 {referral.pipelineStage === PipelineStage.INTAKE && (
                   <Button
                     size="sm"
-                    onClick={() =>
-                      transitionMutation.mutate({
-                        targetStage: PipelineStage.CLINICAL_REVIEW,
-                        reason: 'Intake verification complete',
-                      })
-                    }
-                    disabled={transitionMutation.isPending || !canTransitionStage(PipelineStage.INTAKE, PipelineStage.CLINICAL_REVIEW, user?.roles)}
-                    title={canTransitionStage(PipelineStage.INTAKE, PipelineStage.CLINICAL_REVIEW, user?.roles) ? 'Advance referral' : 'Your role cannot transition referrals out of Intake'}
+                    onClick={() => forwardMutation.mutate()}
+                    disabled={forwardMutation.isPending || (!user?.roles?.includes(UserRole.INTAKE_SPECIALIST) && !user?.roles?.includes(UserRole.ADMIN))}
+                    title={user?.roles?.includes(UserRole.INTAKE_SPECIALIST) || user?.roles?.includes(UserRole.ADMIN) ? 'Forward referral to Clinical Review and lock intake data' : 'Requires Intake Specialist credentials'}
                     className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs disabled:opacity-40"
                   >
-                    <span>Submit Intake & Advance to Clinical Review</span>
+                    {forwardMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+                    <span>Forward to Clinical Review</span>
                     <ArrowRight className="h-3 w-3" />
                   </Button>
                 )}
@@ -501,10 +534,10 @@ export default function ReferralDetailPage() {
                   <Input
                     placeholder={
                       reviewDecision === ClinicalReviewDecision.ACCEPT
-                        ? 'Enter clinical acceptance justification or care plan notes (optional)…'
+                        ? 'Enter clinical acceptance justification or care plan notes (optional)ΓÇª'
                         : reviewDecision === ClinicalReviewDecision.RETURN
-                        ? 'Mandatory: specify what clinical order or document Intake must obtain…'
-                        : 'Mandatory: document medical ineligibility or service area rationale…'
+                        ? 'Mandatory: specify what clinical order or document Intake must obtainΓÇª'
+                        : 'Mandatory: document medical ineligibility or service area rationaleΓÇª'
                     }
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
@@ -550,23 +583,29 @@ export default function ReferralDetailPage() {
 
         {/* Data Locking & Status Banner */}
         {referral.pipelineStage !== PipelineStage.INTAKE ? (
-          <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/80 bg-muted/30 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-3 p-3.5 rounded-lg border border-border/80 bg-muted/40 text-xs">
+            <div className="flex items-center gap-2.5">
               <Shield className="h-4 w-4 text-primary shrink-0" />
               <span>
-                <strong>Intake Baseline Locked:</strong> Patient demographics, payer details, and initial referral documentation are locked while this referral is in <strong>{referral.pipelineStage.replace('_', ' ')}</strong>. To edit intake details, the clinical reviewer must return the case to Intake.
+                <strong>Intake Baseline Locked:</strong> Patient demographics, payer details, and initial referral documentation are locked while this referral is in <strong>{referral.pipelineStage.replace('_', ' ')}</strong> ({referral.workStatus.replace('_', ' ')}). For clinical data integrity and patient confidentiality, fields cannot be modified unless returned by the Clinical Reviewer.
               </span>
             </div>
             <span className="text-[10px] uppercase font-semibold text-muted-foreground px-2 py-0.5 rounded bg-background border border-border shrink-0">
               Read-Only Protected
             </span>
           </div>
-        ) : referral.workStatus === WorkStatus.BLOCKED_NEEDS_INFO ? (
-          <div className="flex items-center gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-900 dark:text-amber-200">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>Intake Action Required:</strong> This referral is flagged as Needs Info / Returned from Clinical Review. Please attach the required clinical order or clarify payer coverage before re-advancing.
-            </span>
+        ) : referral.workStatus === WorkStatus.RETURNED_TO_INTAKE || referral.workStatus === WorkStatus.BLOCKED_NEEDS_INFO ? (
+          <div className="flex items-start gap-3 p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold text-sm block">Action Required: Returned from Clinical Review</span>
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                <strong>Reviewer Return Reason:</strong> {referral.clinicalReviews?.[0]?.reason || referral.transitions?.[0]?.reason || 'The clinical reviewer requested additional clinical documentation or demographic corrections.'}
+              </p>
+              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
+                Intake fields and documents are unlocked. Please make the required updates and click &ldquo;Forward to Clinical Review&rdquo; to re-submit.
+              </p>
+            </div>
           </div>
         ) : null}
 
@@ -714,7 +753,7 @@ export default function ReferralDetailPage() {
                             <span className="font-semibold text-foreground">{doc.originalName || doc.originalFilename || 'Document'}</span>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                               <span>Type: {doc.documentType}</span>
-                              <span>•</span>
+                              <span>ΓÇó</span>
                               <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
                             </div>
                           </div>

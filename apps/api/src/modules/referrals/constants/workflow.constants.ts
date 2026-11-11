@@ -185,6 +185,26 @@ export const WORK_STATUS_TRANSITIONS: Record<WorkStatus, WorkStatus[]> = {
     // No transitions - work is done for this stage
     // Status resets to PENDING on stage transition
   ],
+  [WorkStatus.PENDING_REVIEW]: [
+    WorkStatus.APPROVED_FOR_SCHEDULING,
+    WorkStatus.RETURNED_TO_INTAKE,
+    WorkStatus.REJECTED,
+  ],
+  [WorkStatus.RETURNED_TO_INTAKE]: [
+    WorkStatus.IN_PROGRESS,
+    WorkStatus.PENDING_REVIEW,
+    WorkStatus.BLOCKED_NEEDS_INFO,
+    WorkStatus.ON_HOLD,
+  ],
+  [WorkStatus.APPROVED_FOR_SCHEDULING]: [
+    WorkStatus.IN_PROGRESS,
+    WorkStatus.COMPLETED,
+    WorkStatus.BLOCKED_NEEDS_INFO,
+    WorkStatus.ON_HOLD,
+  ],
+  [WorkStatus.REJECTED]: [
+    // Terminal outcome
+  ],
 };
 
 /**

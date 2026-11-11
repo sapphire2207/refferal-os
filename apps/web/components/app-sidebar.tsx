@@ -116,20 +116,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       isActive: pathname === '/dashboard',
     },
     {
-      title: 'Referrals Pipeline',
-      url: '/referrals',
-      icon: Kanban,
-      isActive: pathname.startsWith('/referrals') && pathname !== '/referrals/new',
-      badge: pipelineBadge,
-      badgeClassName: pipelineBadgeClass,
-    },
-    {
       title: 'Patients Directory',
       url: '/patients',
       icon: Users,
-      isActive: pathname.startsWith('/patients'),
+      isActive: pathname.startsWith('/patients') && !pathname.includes('/referrals'),
     },
   ];
+
+  // Role-specific referral queues
+  const referralQueues = [
+    {
+      title: 'Intake Queue',
+      url: '/referrals/intake',
+      icon: Layers,
+      isActive: pathname.startsWith('/referrals/intake'),
+      badge: isIntake && intakeCount > 0 ? intakeCount : undefined,
+      badgeClassName: 'bg-primary/10 text-primary border border-primary/20 font-bold',
+      show: isIntake || isAdmin,
+    },
+    {
+      title: 'Clinical Review Queue',
+      url: '/referrals/review',
+      icon: FileCheck2,
+      isActive: pathname.startsWith('/referrals/review'),
+      badge: isClinician && clinicalReviewCount > 0 ? clinicalReviewCount : undefined,
+      badgeClassName: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold',
+      show: isClinician || isAdmin,
+    },
+    {
+      title: 'Kanban View',
+      url: '/referrals/kanban',
+      icon: Kanban,
+      isActive: pathname.startsWith('/referrals/kanban'),
+      show: true,
+    },
+  ].filter((item) => item.show);
 
   // Clinical & operational queues
   const operationalQueues = [
@@ -250,7 +271,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         {/* Primary Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 px-2 group-data-[collapsible=icon]:hidden">
-            Operational Overview
+            Core
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -270,16 +291,47 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
                     <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                   </SidebarMenuButton>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <SidebarMenuBadge className={cn('text-[10px] font-semibold h-4.5 min-w-4.5 px-1.5 rounded-full border', item.badgeClassName)}>
-                      {item.badge}
-                    </SidebarMenuBadge>
-                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Referral Queues */}
+        {referralQueues.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/80 px-2 group-data-[collapsible=icon]:hidden">
+              Referral Queues
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {referralQueues.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      render={<Link href={item.url} />}
+                      isActive={item.isActive}
+                      tooltip={item.title}
+                      className={cn(
+                        'h-8 text-xs font-medium rounded-md transition-colors',
+                        item.isActive 
+                          ? 'bg-accent text-accent-foreground font-semibold shadow-2xs' 
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      )}
+                    >
+                      <item.icon className={cn('h-4 w-4 shrink-0', item.isActive ? 'text-foreground' : 'text-muted-foreground')} aria-hidden="true" />
+                      <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
+                    </SidebarMenuButton>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <SidebarMenuBadge className={cn('text-[10px] font-semibold h-4.5 min-w-4.5 px-1.5 rounded-full border', item.badgeClassName)}>
+                        {item.badge}
+                      </SidebarMenuBadge>
+                    )}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Operational Queues */}
         {operationalQueues.length > 0 && (

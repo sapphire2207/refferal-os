@@ -35,6 +35,7 @@ import {
 import { TransitionRequestDto } from './dto/transition-request.dto';
 import { UpdateWorkStatusDto } from './dto/work-status.dto';
 import { AssignmentRequestDto } from './dto/assignment.dto';
+import { ForwardToReviewDto, ReviewDecisionDto } from './dto/forward-review.dto';
 import { WorkflowExceptionFilter } from './filters/workflow-exception.filter';
 
 @ApiTags('Referrals')
@@ -122,6 +123,36 @@ export class ReferralsController {
     @CurrentUser() user: AuthTokenPayload,
   ) {
     return this.referralsService.update(id, dto, user);
+  }
+
+  /**
+   * POST /api/referrals/:id/forward-to-review
+   * Intake specialist forwards referral to clinical review
+   */
+  @Post(':id/forward-to-review')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Forward referral to clinical review (Intake → Clinical Review)' })
+  async forwardToReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ForwardToReviewDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.workflowService.forwardToReview(id, dto, user);
+  }
+
+  /**
+   * POST /api/referrals/:id/review-decision
+   * Clinical reviewer makes decision: Accept, Send Back, or Reject
+   */
+  @Post(':id/review-decision')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Make clinical review decision' })
+  async reviewDecision(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviewDecisionDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.workflowService.reviewDecision(id, dto, user);
   }
 
   /**

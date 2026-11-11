@@ -83,9 +83,9 @@ export class ReferralsService {
     const firstAllowedState = user.scopes?.states?.find((s) => s !== 'ALL' && s !== '*');
     const firstAllowedEntity = user.scopes?.legalEntities?.find((e) => e !== 'ALL' && e !== '*');
 
-    const resolvedSite = dto.site || firstAllowedSite || 'Site-A';
+    const resolvedSite = dto.site || firstAllowedSite || 'main';
     const resolvedState = dto.state || firstAllowedState || 'CA';
-    const resolvedLegalEntity = dto.legalEntity || firstAllowedEntity || 'legal-entity-1';
+    const resolvedLegalEntity = dto.legalEntity || firstAllowedEntity || 'heals_main';
 
     const referral = await this.prisma.referral.create({
       data: {
@@ -152,6 +152,14 @@ export class ReferralsService {
           orderBy: { assignedAt: 'desc' },
           take: 5,
         },
+        clinicalReviews: {
+          orderBy: { reviewedAt: 'desc' },
+        },
+        workflowTransitions: {
+          orderBy: { transitionedAt: 'desc' },
+          take: 10,
+        },
+        documents: true,
       },
     });
 
@@ -316,6 +324,17 @@ export class ReferralsService {
               phone: true,
             },
           },
+          clinicalReviews: {
+            orderBy: { reviewedAt: 'desc' },
+            take: 1,
+            select: {
+              id: true,
+              decision: true,
+              reason: true,
+              notes: true,
+              reviewedAt: true,
+            },
+          },
         },
       }),
       this.prisma.referral.count({ where }),
@@ -455,6 +474,10 @@ export class ReferralsService {
       [WorkStatus.BLOCKED_NEEDS_INFO]: 0,
       [WorkStatus.ON_HOLD]: 0,
       [WorkStatus.COMPLETED]: 0,
+      [WorkStatus.PENDING_REVIEW]: 0,
+      [WorkStatus.RETURNED_TO_INTAKE]: 0,
+      [WorkStatus.APPROVED_FOR_SCHEDULING]: 0,
+      [WorkStatus.REJECTED]: 0,
     };
 
     const isAdmin = user.roles?.some((r) => r === UserRole.ADMIN || r === UserRole.COMPLIANCE);

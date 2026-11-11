@@ -202,6 +202,10 @@ export const STATUS_DISPLAY_NAMES: Record<WorkStatus, string> = {
   [WorkStatus.ON_HOLD]: 'On Hold',
   [WorkStatus.BLOCKED_NEEDS_INFO]: 'Blocked - Needs Info',
   [WorkStatus.COMPLETED]: 'Completed',
+  [WorkStatus.PENDING_REVIEW]: 'Pending Clinical Review',
+  [WorkStatus.RETURNED_TO_INTAKE]: 'Returned to Intake',
+  [WorkStatus.APPROVED_FOR_SCHEDULING]: 'Approved for Scheduling',
+  [WorkStatus.REJECTED]: 'Rejected',
 };
 
 // Role Display Names

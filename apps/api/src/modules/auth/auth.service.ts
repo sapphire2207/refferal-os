@@ -160,6 +160,9 @@ export class AuthService {
         lastName: user.lastName,
         roles,
         scopes,
+        sites: scopes.sites,
+        states: scopes.states,
+        legalEntities: scopes.legalEntities,
         mfaEnabled: user.mfaEnabled || false,
       },
     };

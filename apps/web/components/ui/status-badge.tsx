@@ -13,12 +13,24 @@ interface WorkStatusBadgeProps {
 
 export function WorkStatusBadge({ status, className }: WorkStatusBadgeProps) {
   const isPending = status === WorkStatus.PENDING || status === 'PENDING';
+  const isPendingReview = status === WorkStatus.PENDING_REVIEW || status === 'PENDING_REVIEW';
+  const isReturnedToIntake = status === WorkStatus.RETURNED_TO_INTAKE || status === 'RETURNED_TO_INTAKE';
+  const isApprovedScheduling = status === WorkStatus.APPROVED_FOR_SCHEDULING || status === 'APPROVED_FOR_SCHEDULING';
   const isInProgress = status === WorkStatus.IN_PROGRESS || status === 'IN_PROGRESS';
   const isOnHold = status === WorkStatus.ON_HOLD || status === 'ON_HOLD';
   const isBlocked = status === WorkStatus.BLOCKED_NEEDS_INFO || status === 'BLOCKED_NEEDS_INFO';
+  const isRejected = status === WorkStatus.REJECTED || status === 'REJECTED';
   const isCompleted = status === 'COMPLETED' || status === 'ARCHIVED';
 
-  const containerStyle = isInProgress
+  const containerStyle = isPendingReview
+    ? 'border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400'
+    : isReturnedToIntake
+    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold'
+    : isApprovedScheduling
+    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold'
+    : isRejected
+    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-400'
+    : isInProgress
     ? 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400'
     : isOnHold
     ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
@@ -28,7 +40,15 @@ export function WorkStatusBadge({ status, className }: WorkStatusBadgeProps) {
     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
     : 'border-border/80 bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300';
 
-  const dotColor = isInProgress
+  const dotColor = isPendingReview
+    ? 'bg-purple-500 animate-pulse-subtle'
+    : isReturnedToIntake
+    ? 'bg-amber-500 animate-pulse'
+    : isApprovedScheduling
+    ? 'bg-emerald-500'
+    : isRejected
+    ? 'bg-rose-500'
+    : isInProgress
     ? 'bg-blue-500 animate-pulse-subtle'
     : isOnHold
     ? 'bg-amber-500'
@@ -41,6 +61,14 @@ export function WorkStatusBadge({ status, className }: WorkStatusBadgeProps) {
   const label =
     status === WorkStatus.BLOCKED_NEEDS_INFO
       ? 'Blocked / Needs Info'
+      : status === WorkStatus.PENDING_REVIEW || status === 'PENDING_REVIEW'
+      ? 'Pending Review'
+      : status === WorkStatus.RETURNED_TO_INTAKE || status === 'RETURNED_TO_INTAKE'
+      ? 'Returned to Intake'
+      : status === WorkStatus.APPROVED_FOR_SCHEDULING || status === 'APPROVED_FOR_SCHEDULING'
+      ? 'Approved for Scheduling'
+      : status === WorkStatus.REJECTED || status === 'REJECTED'
+      ? 'Rejected'
       : status.replace(/_/g, ' ');
 
   return (
