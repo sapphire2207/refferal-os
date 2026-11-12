@@ -98,12 +98,10 @@ export class WorkflowService {
     const targetOrder = stageOrder[context.targetStage];
     const isBackward = targetOrder < currentOrder;
 
-    // Terminal state check (Requirements 3.5, 11.1-11.8): block forward transitions if terminal
-    if (!isBackward) {
-      const terminalCheck = this.validationService.checkTerminalState(context.referral);
-      if (!terminalCheck.valid) {
-        errors.push(...terminalCheck.errors);
-      }
+    // Terminal state check (Requirements 3.5, 11.1-11.8): block all transitions if terminal
+    const terminalCheck = this.validationService.checkTerminalState(context.referral);
+    if (!terminalCheck.valid) {
+      errors.push(...terminalCheck.errors);
     }
 
     // 1. Determine action permission required for this transition
@@ -459,6 +457,18 @@ export class WorkflowService {
       throw new ForbiddenException('User lacks scope access to this referral');
     }
 
+    // Block any status modification once referral is in a terminal state
+    if (
+      (referral.workStatus as any) === 'REJECTED' ||
+      ['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(
+        referral.caseOutcome as any,
+      )
+    ) {
+      throw new BadRequestException(
+        `Referral is in terminal state '${referral.caseOutcome || referral.workStatus}' and cannot be modified.`,
+      );
+    }
+
     // Version optimistic concurrency check
     if (referral.version !== dto.version) {
       throw new VersionConflictException(dto.version, referral.version, referral);
@@ -591,8 +601,8 @@ export class WorkflowService {
       throw new VersionConflictException(dto.version, referral.version, referral);
     }
 
-    // Validate required fields
-    const requiredFields = ['patientId', 'referralSource', 'insurancePayer'];
+    // Validate required fields (only mandatory link fields; non-starred fields are optional)
+    const requiredFields = ['patientId'];
     const missing = requiredFields.filter(field => !referral[field as keyof typeof referral]);
     if (missing.length > 0) {
       throw new BadRequestException(`Required fields missing: ${missing.join(', ')}`);
@@ -681,6 +691,17 @@ export class WorkflowService {
     const hasScope = await this.validationService.checkScope(user, referral);
     if (!hasScope) {
       throw new ForbiddenException('User lacks scope access to this referral');
+    }
+
+    if (
+      (referral.workStatus as any) === 'REJECTED' ||
+      ['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(
+        referral.caseOutcome as any,
+      )
+    ) {
+      throw new BadRequestException(
+        `Referral is in terminal state '${referral.caseOutcome || referral.workStatus}' and is permanently closed.`,
+      );
     }
 
     if (referral.pipelineStage !== 'CLINICAL_REVIEW') {

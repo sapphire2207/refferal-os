@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +91,7 @@ interface ReferralRecord {
   };
   pipelineStage: PipelineStage;
   workStatus: WorkStatus;
+  caseOutcome?: string;
   priority: Priority;
   site: string;
   referralSource?: string;
@@ -238,6 +239,16 @@ export default function ReferralsPage() {
       version: number;
       reason?: string;
     }) => {
+      if (targetStage === PipelineStage.NP_VISIT) {
+        const apptsRes = await apiClient.get<any>(`/appointments?referralId=${id}&status=PENDING`);
+        const pendingAppts = extractApiList<any>(apptsRes);
+        if (pendingAppts.length > 0) {
+          return apiClient.patch(`/appointments/${pendingAppts[0].id}/confirm`, {
+            notes: reason || 'Confirmed and dispatched via Kanban board',
+          });
+        }
+      }
+
       return apiClient.post(
         `/referrals/${id}/transitions`,
         {
@@ -859,7 +870,10 @@ export default function ReferralsPage() {
                                 </Button>
                               </Link>
 
-                              {nextStage && canTransitionStage(r.pipelineStage, nextStage, user?.roles) && (
+                              {nextStage &&
+                                r.workStatus !== WorkStatus.REJECTED &&
+                                !['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(r.caseOutcome || '') &&
+                                canTransitionStage(r.pipelineStage, nextStage, user?.roles) && (
                                 <Button
                                   type="button"
                                   size="sm"
@@ -1163,9 +1177,14 @@ function KanbanDraggableCard({
   onOpenDrawer: () => void;
   isAdvancing: boolean;
 }) {
+  const isTerminal =
+    referral.workStatus === WorkStatus.REJECTED ||
+    ['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(referral.caseOutcome || '');
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: referral.id,
     data: referral,
+    disabled: isTerminal,
   });
 
   const style: React.CSSProperties = {
@@ -1196,10 +1215,11 @@ function KanbanDraggableCard({
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 min-w-0">
           <button
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors"
-            title="Drag across stages"
+            {...(isTerminal ? {} : attributes)}
+            {...(isTerminal ? {} : listeners)}
+            disabled={isTerminal}
+            className={isTerminal ? 'cursor-not-allowed p-0.5 rounded text-muted-foreground/30' : 'cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground/60 hover:text-foreground transition-colors'}
+            title={isTerminal ? 'Terminal case — locked' : 'Drag across stages'}
             onClick={(e) => e.stopPropagation()}
           >
             <GripVertical className="h-3.5 w-3.5" />
@@ -1298,12 +1318,12 @@ function KanbanDraggableCard({
               e.stopPropagation();
               onAdvance();
             }}
-            disabled={isAdvancing}
-            className="h-6 text-[10px] px-2 gap-1 bg-background text-foreground hover:bg-primary hover:text-primary-foreground border border-border/80 transition-colors"
-            title="Advance to next workflow stage"
+            disabled={isAdvancing || isTerminal}
+            className="h-6 text-[10px] px-2 gap-1 bg-background text-foreground hover:bg-primary hover:text-primary-foreground border border-border/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isTerminal ? 'Terminal closure — advance permanently disabled' : 'Advance to next workflow stage'}
           >
-            <span>Advance</span>
-            <ArrowRight className="h-2.5 w-2.5" />
+            <span>{isTerminal ? 'Closed' : 'Advance'}</span>
+            {!isTerminal && <ArrowRight className="h-2.5 w-2.5" />}
           </Button>
 
           <Button

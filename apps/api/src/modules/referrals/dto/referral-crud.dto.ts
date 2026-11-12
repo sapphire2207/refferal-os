@@ -76,6 +76,11 @@ export class CreateReferralDto {
   @IsString()
   coverageNotes?: string;
 
+  @ApiPropertyOptional({ description: 'Initial clinical notes or reason for referral' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
   @ApiPropertyOptional({ description: 'Operating site identifier', example: 'site-a' })
   @IsOptional()
   @IsString()
@@ -162,6 +167,11 @@ export class UpdateReferralDto {
   @IsOptional()
   @IsString()
   coverageNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Clinical notes or reason for referral' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiPropertyOptional({ description: 'Operating site identifier', example: 'site-a' })
   @IsOptional()

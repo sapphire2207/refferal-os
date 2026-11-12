@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { AppLayout } from '@/components/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +85,16 @@ export default function ReferralDetailPage() {
   // Stage Transition Mutation
   const transitionMutation = useMutation({
     mutationFn: async ({ targetStage, reason }: { targetStage: PipelineStage; reason: string }) => {
+      if (targetStage === PipelineStage.NP_VISIT && referral?.pipelineStage === PipelineStage.SCHEDULING) {
+        const apptsRes = await apiClient.get<any>(`/appointments?referralId=${id}&status=PENDING`);
+        const pendingAppts = extractApiList<any>(apptsRes);
+        if (pendingAppts.length > 0) {
+          return apiClient.patch(`/appointments/${pendingAppts[0].id}/confirm`, {
+            notes: reason || 'Confirmed and dispatched via Referral Detail',
+          });
+        }
+      }
+
       const latest = await apiClient.get<any>(`/referrals/${id}`);
       const versionToUse = latest?.version ?? referral.version;
       return apiClient.post(
@@ -97,6 +107,7 @@ export default function ReferralDetailPage() {
       toast.success(`Referral moved to ${variables.targetStage.replace('_', ' ')}`);
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
     },
     onError: (err: any) => {
@@ -247,6 +258,10 @@ export default function ReferralDetailPage() {
     );
   }
 
+  const isTerminal =
+    referral.workStatus === WorkStatus.REJECTED ||
+    ['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(referral.caseOutcome);
+
   // 6-Gate Sequence for Visual Stepper
   const workflowGates = [
     { key: PipelineStage.INTAKE, label: 'Intake Triage', order: 1 },
@@ -359,29 +374,32 @@ export default function ReferralDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isTerminal || updateStatusMutation.isPending}
                   onClick={() => updateStatusMutation.mutate({ workStatus: WorkStatus.IN_PROGRESS })}
-                  className="h-7 text-[11px]"
+                  className="h-7 text-[11px] disabled:opacity-40"
                 >
                   In Progress
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isTerminal || updateStatusMutation.isPending}
                   onClick={() =>
                     updateStatusMutation.mutate({
                       workStatus: WorkStatus.BLOCKED_NEEDS_INFO,
                       blockedReason: 'Missing signed clinical order',
                     })
                   }
-                  className="h-7 text-[11px] text-amber-600 dark:text-amber-400"
+                  className="h-7 text-[11px] text-amber-600 dark:text-amber-400 disabled:opacity-40"
                 >
                   Blocked / Needs Info
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={isTerminal || updateStatusMutation.isPending}
                   onClick={() => updateStatusMutation.mutate({ workStatus: WorkStatus.COMPLETED })}
-                  className="h-7 text-[11px] text-emerald-600 dark:text-emerald-400"
+                  className="h-7 text-[11px] text-emerald-600 dark:text-emerald-400 disabled:opacity-40"
                 >
                   Complete Status
                 </Button>
@@ -389,7 +407,7 @@ export default function ReferralDetailPage() {
 
               {/* Stage Transition Actions */}
               <div className="ml-auto flex items-center gap-2">
-                {referral.pipelineStage === PipelineStage.INTAKE && (
+                {!isTerminal && referral.pipelineStage === PipelineStage.INTAKE && (
                   <Button
                     size="sm"
                     onClick={() => forwardMutation.mutate()}
@@ -403,7 +421,7 @@ export default function ReferralDetailPage() {
                   </Button>
                 )}
 
-                {referral.pipelineStage === PipelineStage.SCHEDULING && (
+                {!isTerminal && referral.pipelineStage === PipelineStage.SCHEDULING && (
                   <Button
                     size="sm"
                     onClick={() =>
@@ -421,7 +439,7 @@ export default function ReferralDetailPage() {
                   </Button>
                 )}
 
-                {referral.pipelineStage === PipelineStage.NP_VISIT && (
+                {!isTerminal && referral.pipelineStage === PipelineStage.NP_VISIT && (
                   <Button
                     size="sm"
                     onClick={() =>
@@ -439,7 +457,7 @@ export default function ReferralDetailPage() {
                   </Button>
                 )}
 
-                {referral.pipelineStage === PipelineStage.NOTES_QA && (
+                {!isTerminal && referral.pipelineStage === PipelineStage.NOTES_QA && (
                   <Button
                     size="sm"
                     onClick={() =>
@@ -459,8 +477,30 @@ export default function ReferralDetailPage() {
               </div>
             </div>
 
+            {/* Terminal Closure Lockout Notice */}
+            {isTerminal && (
+              <div className="pt-3 border-t border-border/60">
+                <div className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-800 dark:text-rose-200 flex items-start gap-2.5 text-xs">
+                  <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold block">
+                      Terminal Case Closure ({referral.caseOutcome || referral.workStatus})
+                    </span>
+                    <p className="text-[11px] opacity-90">
+                      This referral has reached a terminal disposition. Status changes, clinical review determinations, drag controls, and stage transitions are permanently locked.
+                    </p>
+                    {(referral.clinicalReviews?.[0]?.reason || referral.workflowTransitions?.[0]?.reason) && (
+                      <p className="text-[11px] font-medium pt-0.5">
+                        Disposition Reason: {referral.clinicalReviews?.[0]?.reason || referral.workflowTransitions?.[0]?.reason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Authoritative Clinical Review Decision Block if in CLINICAL_REVIEW */}
-            {referral.pipelineStage === PipelineStage.CLINICAL_REVIEW && (
+            {!isTerminal && referral.pipelineStage === PipelineStage.CLINICAL_REVIEW && (
               <div className="pt-4 border-t border-border/60 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
@@ -700,7 +740,7 @@ export default function ReferralDetailPage() {
                   <div className="pt-2">
                     <span className="text-muted-foreground block mb-1">Clinical Notes / Reason:</span>
                     <p className="bg-muted/40 p-2.5 rounded-md text-foreground whitespace-pre-wrap leading-relaxed">
-                      {referral.notes || 'No initial notes provided.'}
+                      {referral.notes || referral.coverageNotes || 'No initial notes provided.'}
                     </p>
                   </div>
                 </CardContent>
@@ -872,6 +912,22 @@ export default function ReferralDetailPage() {
                       <p className="text-[11px] text-muted-foreground">Last modified: {new Date(referral.updatedAt).toLocaleString()}</p>
                     </div>
                   </div>
+                  {(referral.workflowTransitions || referral.transitions || []).map((t: any) => (
+                    <div key={t.id} className="flex items-start gap-3 text-xs border-l-2 border-amber-500/60 pl-3 py-1">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="space-y-0.5">
+                        <span className="font-semibold text-foreground">
+                          {t.fromStage ? `${t.fromStage} → ${t.toStage}` : t.toStage} ({t.toStatus})
+                        </span>
+                        {t.reason && (
+                          <p className="text-[11px] text-foreground/90">{t.reason}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {new Date(t.transitionedAt || t.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                   <div className="flex items-start gap-3 text-xs border-l-2 border-border pl-3 py-1">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                     <div>

@@ -102,7 +102,7 @@ export class ReferralsService {
         insuranceGroupNumber: dto.insuranceGroupNumber,
         coverageVerified: dto.coverageVerified ?? false,
         coverageVerificationDate: dto.coverageVerificationDate,
-        coverageNotes: dto.coverageNotes,
+        coverageNotes: dto.coverageNotes ?? dto.notes,
         site: resolvedSite,
         state: resolvedState,
         legalEntity: resolvedLegalEntity,
@@ -181,6 +181,10 @@ export class ReferralsService {
         referral.id,
         `Referral details viewed for patient ${referral.patient.id}`,
       );
+    }
+
+    if (referral.coverageNotes && !(referral as any).notes) {
+      (referral as any).notes = referral.coverageNotes;
     }
 
     return referral;
@@ -343,12 +347,14 @@ export class ReferralsService {
     // Mask patient summary details in operational list projections (minimum necessary)
     const projectedData = data.map((r: any) => {
       const trackingNumber = r.trackingNumber || `REF-${r.id.slice(0, 8).toUpperCase()}`;
+      const notes = r.notes || r.coverageNotes;
       if (!r.patient) {
-        return { ...r, trackingNumber };
+        return { ...r, trackingNumber, ...(notes && { notes }) };
       }
       return {
         ...r,
         trackingNumber,
+        ...(notes && { notes }),
         patient: {
           ...r.patient,
           medicalRecordNumber: r.patient.medicalRecordNumber

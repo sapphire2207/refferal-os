@@ -386,6 +386,7 @@ export default function NewReferralPage() {
         ...(referringProvider.trim() && { referringProvider: referringProvider.trim() }),
         ...(referringFacility.trim() && { referringFacility: referringFacility.trim() }),
         ...(insurancePayer.trim() && { insurancePayer: insurancePayer.trim() }),
+        ...(notes.trim() && { notes: notes.trim(), coverageNotes: notes.trim() }),
       });
     },
     onSuccess: (data) => {
