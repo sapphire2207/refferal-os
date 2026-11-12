@@ -79,16 +79,20 @@ export default function ReferralDetailPage() {
     queryKey: ['referral', id],
     queryFn: () => apiClient.get<any>(`/referrals/${id}`),
     enabled: !!id,
+    refetchOnMount: 'always',
   });
 
   // Stage Transition Mutation
   const transitionMutation = useMutation({
-    mutationFn: ({ targetStage, reason }: { targetStage: PipelineStage; reason: string }) =>
-      apiClient.post(
+    mutationFn: async ({ targetStage, reason }: { targetStage: PipelineStage; reason: string }) => {
+      const latest = await apiClient.get<any>(`/referrals/${id}`);
+      const versionToUse = latest?.version ?? referral.version;
+      return apiClient.post(
         `/referrals/${id}/transitions`,
-        { targetStage, reason, version: referral.version },
+        { targetStage, reason, version: versionToUse },
         { idempotencyKey: `trans-${id}-${Date.now()}` },
-      ),
+      );
+    },
     onSuccess: (data, variables) => {
       toast.success(`Referral moved to ${variables.targetStage.replace('_', ' ')}`);
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
@@ -104,8 +108,11 @@ export default function ReferralDetailPage() {
 
   // Work Status Mutation
   const updateStatusMutation = useMutation({
-    mutationFn: ({ workStatus, blockedReason }: { workStatus: WorkStatus; blockedReason?: string }) =>
-      apiClient.patch(`/referrals/${id}/work-status`, { workStatus, blockedReason, version: referral.version }),
+    mutationFn: async ({ workStatus, blockedReason }: { workStatus: WorkStatus; blockedReason?: string }) => {
+      const latest = await apiClient.get<any>(`/referrals/${id}`);
+      const versionToUse = latest?.version ?? referral.version;
+      return apiClient.patch(`/referrals/${id}/work-status`, { workStatus, blockedReason, version: versionToUse });
+    },
     onSuccess: () => {
       toast.success('Work status updated');
       queryClient.invalidateQueries({ queryKey: ['referral', id] });
@@ -118,11 +125,14 @@ export default function ReferralDetailPage() {
 
   // Forward to Clinical Review Mutation (Intake Specialist)
   const forwardMutation = useMutation({
-    mutationFn: () =>
-      apiClient.post(`/referrals/${id}/forward-to-review`, {
-        version: referral.version,
+    mutationFn: async () => {
+      const latest = await apiClient.get<any>(`/referrals/${id}`);
+      const versionToUse = latest?.version ?? referral.version;
+      return apiClient.post(`/referrals/${id}/forward-to-review`, {
+        version: versionToUse,
         notes: 'Intake demographic and payer verification complete',
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success('Referral forwarded to Clinical Review', {
         description: 'Intake data is now locked while under clinical determination.',
@@ -151,8 +161,11 @@ export default function ReferralDetailPage() {
             ? 'SEND_BACK'
             : 'REJECT';
 
+      const latest = await apiClient.get<any>(`/referrals/${id}`);
+      const versionToUse = latest?.version ?? referral.version;
+
       return apiClient.post(`/referrals/${id}/review-decision`, {
-        version: referral.version,
+        version: versionToUse,
         decision: decisionMapped,
         reason: reviewNotes.trim() || undefined,
         notes: reviewNotes.trim() || undefined,

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User, UserRole } from '@heals/types';
 import { apiClient } from '@/lib/api-client';
 import { useRouter, usePathname } from 'next/navigation';
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextValue>({
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -131,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await apiClient.post('/auth/logout', { refreshToken }).catch(() => {});
       }
     } finally {
+      queryClient.clear();
       apiClient.clearTokens();
       setUser(null);
       toast.info('Logged out securely');

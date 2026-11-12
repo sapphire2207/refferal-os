@@ -123,8 +123,10 @@ export default function ClinicalReviewQueuePage() {
       decision: string;
       reason?: string;
     }) => {
+      const latest = await apiClient.get<any>(`/referrals/${id}`);
+      const versionToUse = latest?.version ?? version;
       return apiClient.post(`/referrals/${id}/review-decision`, {
-        version,
+        version: versionToUse,
         decision,
         reason,
       });
