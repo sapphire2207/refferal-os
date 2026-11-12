@@ -26,6 +26,7 @@ export default function BillingPage() {
   const [selectedReferral, setSelectedReferral] = useState<any | null>(null);
   const [billingCodes, setBillingCodes] = useState('99349, 99350 (Home Visit, Complex)');
   const [chargeAmount, setChargeAmount] = useState('285.00');
+  const [claimMeta, setClaimMeta] = useState<Record<string, { chargeAmount: number; billingCodes: string[] }>>({});
   const [claimToMarkPaid, setClaimToMarkPaid] = useState<any | null>(null);
   const [claimToDeny, setClaimToDeny] = useState<any | null>(null);
 
@@ -41,22 +42,39 @@ export default function BillingPage() {
     queryFn: () => apiClient.get<any>('/billing/claims'),
   });
 
-  const billingQueue = extractApiList<any>(billingData);
   const claims = extractApiList<any>(claimsRes);
+  const claimedReferralIds = new Set(claims.map((c: any) => c.referralId));
+  const billingQueue = extractApiList<any>(billingData).filter(
+    (r: any) =>
+      !claimedReferralIds.has(r.id) &&
+      r.billingStatus !== BillingStatus.PAID &&
+      r.caseOutcome !== 'CLOSED',
+  );
 
   // Generate Claim Mutation
   const createClaimMutation = useMutation({
     mutationFn: async () => {
       if (!selectedReferral) throw new Error('Please select a referral');
 
-      return apiClient.post('/billing/claims', {
+      const parsedCodes = billingCodes.split(',').map((c) => c.trim()).filter(Boolean);
+      const parsedAmount = parseFloat(chargeAmount) || 285.0;
+
+      const created = await apiClient.post<any>('/billing/claims', {
         referralId: selectedReferral.id,
         encounterId: selectedReferral.encounter?.id || `enc-${Date.now()}`,
-        billingCodes: billingCodes.split(',').map((c) => c.trim()),
-        chargeAmount: parseFloat(chargeAmount) || 285.0,
+        billingCodes: parsedCodes,
+        chargeAmount: parsedAmount,
       });
+
+      return { created, parsedCodes, parsedAmount };
     },
-    onSuccess: () => {
+    onSuccess: ({ created, parsedCodes, parsedAmount }) => {
+      if (created?.id) {
+        setClaimMeta((prev) => ({
+          ...prev,
+          [created.id]: { chargeAmount: parsedAmount, billingCodes: parsedCodes },
+        }));
+      }
       toast.success('Superbill Claim Generated & Marked READY for Submission!');
       setSelectedReferral(null);
       queryClient.invalidateQueries({ queryKey: ['claims'] });
@@ -69,10 +87,11 @@ export default function BillingPage() {
 
   // Adjudicate Claim Mutation
   const adjudicateMutation = useMutation({
-    mutationFn: ({ id, status, denialReason }: { id: string; status: string; denialReason?: string }) =>
-      apiClient.patch(`/billing/claims/${id}/adjudicate`, {
+    mutationFn: ({ id, status, denialReason, paidAmount }: { id: string; status: string; denialReason?: string; paidAmount?: number }) =>
+      apiClient.post(`/billing/claims/${id}/adjudicate`, {
         status,
-        denialReason,
+        ...(paidAmount !== undefined && { paidAmount }),
+        ...(denialReason && { denialReason }),
         referenceNumber: `ADJ-${Date.now().toString().slice(-6)}`,
       }),
     onSuccess: (data, variables) => {
@@ -336,9 +355,26 @@ export default function BillingPage() {
                         </span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-1.5">
-                        <span>Charge: ${claim.chargeAmount?.toFixed(2) || '285.00'}</span>
+                        {claim.referral?.patient && (
+                          <>
+                            <span className="font-medium text-foreground">
+                              {claim.referral.patient.firstName} {claim.referral.patient.lastName}
+                            </span>
+                            <span> • </span>
+                          </>
+                        )}
+                        <span>
+                          Charge: ${(claim.paidAmount != null
+                            ? Number(claim.paidAmount)
+                            : claimMeta[claim.id]?.chargeAmount ?? claim.chargeAmount ?? 285
+                          ).toFixed(2)}
+                        </span>
                         <span> • </span>
-                        <span>Codes: {Array.isArray(claim.billingCodes) ? claim.billingCodes.join(', ') : '99349'}</span>
+                        <span>
+                          Codes: {Array.isArray(claim.billingCodes)
+                            ? claim.billingCodes.join(', ')
+                            : claimMeta[claim.id]?.billingCodes?.join(', ') || '99349'}
+                        </span>
                       </div>
                     </div>
 
@@ -387,8 +423,12 @@ export default function BillingPage() {
           isLoading={adjudicateMutation.isPending}
           onConfirm={() => {
             if (claimToMarkPaid) {
+              const amount =
+                claimMeta[claimToMarkPaid.id]?.chargeAmount ??
+                claimToMarkPaid.chargeAmount ??
+                (parseFloat(chargeAmount) || 285.0);
               adjudicateMutation.mutate(
-                { id: claimToMarkPaid.id, status: 'PAID' },
+                { id: claimToMarkPaid.id, status: 'PAID', paidAmount: amount },
                 { onSettled: () => setClaimToMarkPaid(null) }
               );
             }

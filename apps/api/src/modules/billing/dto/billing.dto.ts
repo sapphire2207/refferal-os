@@ -7,6 +7,7 @@ import {
   IsNumber,
   Min,
   IsBoolean,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -22,6 +23,23 @@ export class CreateClaimDto {
   @IsOptional()
   @IsString()
   claimNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Optional encounter UUID' })
+  @IsOptional()
+  @IsString()
+  encounterId?: string;
+
+  @ApiPropertyOptional({ example: ['99349', '97597'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  billingCodes?: string[];
+
+  @ApiPropertyOptional({ example: 345.0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  chargeAmount?: number;
 }
 
 export class SubmitClaimDto {
@@ -60,6 +78,11 @@ export class AdjudicateClaimDto {
   @IsOptional()
   @IsString()
   rejectionReason?: string;
+
+  @ApiPropertyOptional({ example: 'ADJ-123456' })
+  @IsOptional()
+  @IsString()
+  referenceNumber?: string;
 }
 
 export class QueryClaimsDto {

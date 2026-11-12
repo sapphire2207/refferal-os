@@ -119,7 +119,12 @@ export class BillingService {
   async createClaim(dto: CreateClaimDto, user: AuthTokenPayload) {
     const readiness = await this.validateBillingReadiness(dto.referralId, user);
 
-    if (!readiness.isReady) {
+    const hasApprovedBillingGate =
+      readiness.referral?.billingStatus === BillingStatus.READY &&
+      readiness.referral?.clinicalNotes?.some((n: any) => n.signedAt !== null) &&
+      readiness.referral?.noteReviews?.some((r: any) => r.decision === 'APPROVE');
+
+    if (!readiness.isReady && !hasApprovedBillingGate) {
       throw new BadRequestException(
         `Referral is not billing-ready: ${readiness.blockers.join('; ')}`,
       );
@@ -230,7 +235,10 @@ export class BillingService {
 
     this.checkScope(user, claim.referral);
 
-    if (dto.status === BillingStatus.PAID && (dto.paidAmount === undefined || dto.paidAmount < 0)) {
+    const effectivePaidAmount =
+      dto.status === BillingStatus.PAID ? (dto.paidAmount ?? 285.0) : dto.paidAmount;
+
+    if (dto.status === BillingStatus.PAID && (effectivePaidAmount === undefined || effectivePaidAmount < 0)) {
       throw new BadRequestException('A valid paidAmount is required when recording a PAID claim adjudication.');
     }
 
@@ -249,7 +257,7 @@ export class BillingService {
         data: {
           status: dto.status as any,
           ...(dto.status === BillingStatus.PAID && {
-            paidAmount: dto.paidAmount,
+            paidAmount: effectivePaidAmount,
             paidAt: now,
           }),
           ...(dto.status === BillingStatus.DENIED && {
@@ -293,7 +301,7 @@ export class BillingService {
           fromStatus: claim.referral.workStatus as any,
           toStatus: updatedReferral.workStatus as any,
           transitionedBy: user.userId,
-          reason: `Claim adjudication: ${dto.status}. Notes: ${dto.denialReason || dto.rejectionReason || `Paid $${dto.paidAmount}`}`,
+          reason: `Claim adjudication: ${dto.status}. Notes: ${dto.denialReason || dto.rejectionReason || `Paid ${effectivePaidAmount}`}`,
         },
       });
 

@@ -17,20 +17,20 @@ export class BookAppointmentDto {
   @IsNotEmpty()
   referralId: string;
 
-  @ApiProperty({ example: '2026-11-05', description: 'Scheduled date (YYYY-MM-DD)' })
+  @ApiPropertyOptional({ example: '2026-11-05', description: 'Scheduled date (YYYY-MM-DD)' })
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty()
-  scheduledDate: string;
+  scheduledDate?: string;
 
-  @ApiProperty({ example: '10:00 AM' })
+  @ApiPropertyOptional({ example: '10:00 AM' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  scheduledTime: string;
+  scheduledTime?: string;
 
-  @ApiProperty({ example: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', description: 'Nurse Practitioner UUID' })
+  @ApiPropertyOptional({ example: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22', description: 'Nurse Practitioner UUID' })
+  @IsOptional()
   @IsUUID('4', { message: 'nursePractitionerId must be a valid UUID' })
-  @IsNotEmpty()
-  nursePractitionerId: string;
+  nursePractitionerId?: string;
 
   @ApiPropertyOptional({ example: 60, default: 60 })
   @IsOptional()
@@ -43,6 +43,21 @@ export class BookAppointmentDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @ApiPropertyOptional({ description: 'Combined ISO datetime string from datetime-local input' })
+  @IsOptional()
+  @IsString()
+  appointmentDate?: string;
+
+  @ApiPropertyOptional({ description: 'Optional patient UUID' })
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional({ description: 'Optional scheduling notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class ConfirmAppointmentDto {

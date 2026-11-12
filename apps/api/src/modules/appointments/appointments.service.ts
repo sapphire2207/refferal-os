@@ -85,29 +85,99 @@ export class AppointmentsService {
       );
     }
 
-    // Validate Nurse Practitioner credentials and active status
-    const np = await this.prisma.user.findUnique({
-      where: { id: dto.nursePractitionerId },
-      include: { userRoles: true, userScopes: true },
-    });
+    // Resolve scheduledDate and scheduledTime (supporting either separate fields or combined appointmentDate)
+    let scheduledDateStr = dto.scheduledDate;
+    let scheduledTimeStr = dto.scheduledTime;
 
-    if (!np || !np.isActive || np.isSuspended) {
-      throw new BadRequestException('Selected Nurse Practitioner is inactive or invalid.');
+    if ((!scheduledDateStr || !scheduledTimeStr) && dto.appointmentDate) {
+      const parsed = new Date(dto.appointmentDate);
+      if (isNaN(parsed.getTime())) {
+        throw new BadRequestException('Invalid appointmentDate format.');
+      }
+      const parts = dto.appointmentDate.split('T');
+      scheduledDateStr = scheduledDateStr || parts[0];
+      if (!scheduledTimeStr) {
+        if (parts[1]) {
+          const [hStr, mStr] = parts[1].split(':');
+          const h = parseInt(hStr, 10);
+          const m = (mStr || '00').slice(0, 2);
+          const period = h >= 12 ? 'PM' : 'AM';
+          const h12 = h % 12 || 12;
+          scheduledTimeStr = `${String(h12).padStart(2, '0')}:${m} ${period}`;
+        } else {
+          scheduledTimeStr = '09:00 AM';
+        }
+      }
     }
 
-    const hasNpRole = np.userRoles.some((ur: any) => ur.role === UserRole.NURSE_PRACTITIONER);
-    if (!hasNpRole) {
-      throw new BadRequestException('Assigned clinician must possess NURSE_PRACTITIONER role.');
+    if (!scheduledDateStr || !scheduledTimeStr) {
+      throw new BadRequestException('scheduledDate and scheduledTime are required.');
+    }
+
+    // Validate Nurse Practitioner credentials and active status (auto-match territory NP if omitted)
+    let np: any = null;
+    if (dto.nursePractitionerId) {
+      np = await this.prisma.user.findUnique({
+        where: { id: dto.nursePractitionerId },
+        include: { userRoles: true, userScopes: true },
+      });
+
+      if (!np || !np.isActive || np.isSuspended) {
+        throw new BadRequestException('Selected Nurse Practitioner is inactive or invalid.');
+      }
+
+      const hasNpRole = np.userRoles.some((ur: any) => ur.role === UserRole.NURSE_PRACTITIONER);
+      if (!hasNpRole) {
+        throw new BadRequestException('Assigned clinician must possess NURSE_PRACTITIONER role.');
+      }
+    } else {
+      const scopedNp = await this.prisma.user.findFirst({
+        where: {
+          isActive: true,
+          isSuspended: false,
+          userRoles: { some: { role: UserRole.NURSE_PRACTITIONER as any } },
+          ...(referral.site || referral.state
+            ? {
+                userScopes: {
+                  some: {
+                    OR: [
+                      ...(referral.site ? [{ site: referral.site }] : []),
+                      ...(referral.state ? [{ state: referral.state }] : []),
+                      { site: 'ALL' },
+                      { state: 'ALL' },
+                    ],
+                  },
+                },
+              }
+            : {}),
+        },
+        include: { userRoles: true, userScopes: true },
+      });
+
+      np =
+        scopedNp ||
+        (await this.prisma.user.findFirst({
+          where: {
+            isActive: true,
+            isSuspended: false,
+            userRoles: { some: { role: UserRole.NURSE_PRACTITIONER as any } },
+          },
+          include: { userRoles: true, userScopes: true },
+        }));
+
+      if (!np) {
+        throw new BadRequestException('No active Nurse Practitioner available for territory dispatch.');
+      }
     }
 
     const appointment = await this.prisma.$transaction(async (tx) => {
       const appt = await tx.appointment.create({
         data: {
           referralId: dto.referralId,
-          scheduledDate: new Date(dto.scheduledDate),
-          scheduledTime: dto.scheduledTime.trim(),
+          scheduledDate: new Date(scheduledDateStr!),
+          scheduledTime: scheduledTimeStr!.trim(),
           durationMinutes: dto.durationMinutes || 60,
-          nursePractitionerId: dto.nursePractitionerId,
+          nursePractitionerId: np.id,
           location: dto.location?.trim() || `${referral.patient.addressLine1 || ''}, ${referral.patient.city || ''}, ${referral.patient.state || ''}`.trim(),
           createdById: user.userId,
         },
@@ -119,7 +189,7 @@ export class AppointmentsService {
         data: {
           pipelineStage: PipelineStage.SCHEDULING as any,
           workStatus: WorkStatus.IN_PROGRESS as any,
-          assignedTo: dto.nursePractitionerId,
+          assignedTo: np.id,
           assignedRole: UserRole.NURSE_PRACTITIONER as any,
         },
       });
@@ -128,7 +198,7 @@ export class AppointmentsService {
     });
 
     this.logger.log(
-      `Booked appointment ${appointment.id} for referral ${dto.referralId} on ${dto.scheduledDate}`,
+      `Booked appointment ${appointment.id} for referral ${dto.referralId} on ${scheduledDateStr}`,
     );
 
     return appointment;
@@ -309,6 +379,51 @@ export class AppointmentsService {
   }
 
   /**
+   * Enriches appointment record with computed status, combined appointmentDate, and referral trackingNumber.
+   */
+  private enrichAppointment(appt: any) {
+    if (!appt) return appt;
+    const status = appt.cancelledAt ? 'CANCELLED' : appt.confirmedAt ? 'CONFIRMED' : 'SCHEDULED';
+    let appointmentDate = appt.appointmentDate;
+    if (!appointmentDate && appt.scheduledDate) {
+      const d = new Date(appt.scheduledDate);
+      if (!isNaN(d.getTime())) {
+        const datePart = d.toISOString().split('T')[0];
+        let hh = '09';
+        let mm = '00';
+        if (appt.scheduledTime) {
+          const match = String(appt.scheduledTime).trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+          if (match) {
+            let h = parseInt(match[1], 10);
+            mm = match[2];
+            const period = match[3]?.toUpperCase();
+            if (period === 'PM' && h < 12) h += 12;
+            if (period === 'AM' && h === 12) h = 0;
+            hh = String(h).padStart(2, '0');
+          }
+        }
+        appointmentDate = `${datePart}T${hh}:${mm}:00`;
+      }
+    }
+
+    const referral = appt.referral
+      ? {
+          ...appt.referral,
+          trackingNumber:
+            appt.referral.trackingNumber ||
+            (appt.referral.id ? `REF-${appt.referral.id.slice(0, 8).toUpperCase()}` : undefined),
+        }
+      : appt.referral;
+
+    return {
+      ...appt,
+      status,
+      ...(appointmentDate && { appointmentDate }),
+      referral,
+    };
+  }
+
+  /**
    * Queries appointments with filters, date range, and scope validation.
    */
   async findAll(query: QueryAppointmentsDto, user: AuthTokenPayload) {
@@ -379,7 +494,7 @@ export class AppointmentsService {
     ]);
 
     return {
-      data,
+      data: data.map((a) => this.enrichAppointment(a)),
       total,
       page,
       limit,
@@ -412,6 +527,6 @@ export class AppointmentsService {
     }
 
     this.checkScope(user, appt.referral);
-    return appt;
+    return this.enrichAppointment(appt);
   }
 }

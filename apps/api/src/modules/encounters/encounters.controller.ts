@@ -20,6 +20,8 @@ import { EncountersService } from './encounters.service';
 import {
   CreateEncounterDto,
   CreateClinicalNoteDto,
+  CreateEncounterNoteBodyDto,
+  SignEncounterNoteDto,
   UpdateClinicalNoteDto,
   ReviewNoteDto,
   QueryEncountersDto,
@@ -104,6 +106,30 @@ export class EncountersController {
     @CurrentUser() user: AuthTokenPayload,
   ) {
     return this.encountersService.createNote(dto, user);
+  }
+
+  @Post(':encounterId/notes')
+  @Roles(UserRole.NURSE_PRACTITIONER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create clinical SOAP note for an encounter (nested route alias)' })
+  @ApiResponse({ status: 201, description: 'Draft note created' })
+  async createNoteForEncounter(
+    @Param('encounterId') encounterId: string,
+    @Body() dto: CreateEncounterNoteBodyDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.encountersService.createNoteForEncounter(encounterId, dto, user);
+  }
+
+  @Patch(':encounterId/notes/sign')
+  @Roles(UserRole.NURSE_PRACTITIONER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Digitally sign latest encounter note and advance to NOTES_QA (alias)' })
+  @ApiResponse({ status: 200, description: 'Note digitally signed and pipeline advanced' })
+  async signEncounterNoteAlias(
+    @Param('encounterId') encounterId: string,
+    @Body() _dto: SignEncounterNoteDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.encountersService.signLatestNoteForEncounter(encounterId, user);
   }
 
   @Get('notes/:id')

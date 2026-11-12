@@ -233,6 +233,68 @@ export class EncountersService {
   }
 
   /**
+   * Compatibility helper: creates a clinical note via /encounters/:encounterId/notes
+   * accepting either structured SOAP fields or flat content.
+   */
+  async createNoteForEncounter(
+    encounterId: string,
+    body: {
+      referralId?: string;
+      noteType?: string;
+      content?: string;
+      subjective?: string;
+      objective?: string;
+      assessment?: string;
+      plan?: string;
+    },
+    user: AuthTokenPayload,
+  ) {
+    const encounter = await this.prisma.encounter.findUnique({
+      where: { id: encounterId },
+      include: { referral: true },
+    });
+    if (!encounter) {
+      throw new NotFoundException(`Encounter ${encounterId} not found.`);
+    }
+
+    const soapParts = [
+      body.subjective ? `Subjective: ${body.subjective.trim()}` : '',
+      body.objective ? `Objective: ${body.objective.trim()}` : '',
+      body.assessment ? `Assessment: ${body.assessment.trim()}` : '',
+      body.plan ? `Plan: ${body.plan.trim()}` : '',
+    ].filter(Boolean);
+
+    const content = body.content?.trim() || soapParts.join('\n\n');
+    if (!content) {
+      throw new BadRequestException('Clinical note content or SOAP fields are required.');
+    }
+
+    return this.createNote(
+      {
+        referralId: body.referralId || encounter.referralId,
+        encounterId,
+        noteType: body.noteType || 'SOAP_NOTE',
+        content,
+      },
+      user,
+    );
+  }
+
+  /**
+   * Compatibility helper: signs the latest unsigned note for an encounter.
+   */
+  async signLatestNoteForEncounter(encounterId: string, user: AuthTokenPayload) {
+    const note = await this.prisma.clinicalNote.findFirst({
+      where: { encounterId, signedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!note) {
+      throw new NotFoundException(`No unsigned clinical note found for encounter ${encounterId}.`);
+    }
+    return this.signAndSubmitNote(note.id, user);
+  }
+
+  /**
    * Creates a draft clinical note linked to an encounter.
    */
   async createNote(dto: CreateClinicalNoteDto, user: AuthTokenPayload) {

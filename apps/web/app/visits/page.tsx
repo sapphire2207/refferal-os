@@ -46,27 +46,37 @@ export default function VisitsPage() {
     mutationFn: async () => {
       if (!selectedReferral) throw new Error('Please select a visit');
 
+      const servicesArray = servicesProvided
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       // 1. Create Encounter record
       const encounter = await apiClient.post<any>('/encounters', {
         referralId: selectedReferral.id,
-        patientId: selectedReferral.patientId,
         dateOfService,
-        servicesProvided,
+        servicesProvided: servicesArray.length > 0 ? servicesArray : ['Clinical Assessment'],
         outcome: 'COMPLETED',
       });
 
       // 2. Create Clinical Note (SOAP)
-      await apiClient.post<any>(`/encounters/${encounter.id}/notes`, {
-        subjective,
-        objective,
-        assessment,
-        plan,
+      const soapContent = [
+        `Subjective: ${subjective.trim()}`,
+        `Objective: ${objective.trim()}`,
+        `Assessment: ${assessment.trim()}`,
+        `Plan: ${plan.trim()}`,
+        ...(signature.trim() ? [`Attestation: ${signature.trim()}`] : []),
+      ].join('\n\n');
+
+      const note = await apiClient.post<any>('/encounters/notes', {
+        referralId: selectedReferral.id,
+        encounterId: encounter.id,
+        noteType: 'SOAP_NOTE',
+        content: soapContent,
       });
 
-      // 3. Digitally sign the note with credentials
-      await apiClient.patch(`/encounters/${encounter.id}/notes/sign`, {
-        signatureCredentials: signature,
-      });
+      // 3. Digitally sign the note and advance referral to NOTES_QA
+      await apiClient.post(`/encounters/notes/${note.id}/sign`, {});
 
       return encounter;
     },

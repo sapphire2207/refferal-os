@@ -10,7 +10,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VisitOutcome, NoteReviewDecision } from '@heals/types';
 
@@ -44,6 +44,14 @@ export class CreateEncounterDto {
     example: ['Comprehensive Physical Exam', 'Wound Debridement', 'Medication Reconciliation'],
     type: [String],
   })
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+      : value,
+  )
   @IsArray()
   @IsString({ each: true })
   servicesProvided: string[];
@@ -52,6 +60,11 @@ export class CreateEncounterDto {
   @IsOptional()
   @IsString()
   encounterNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Optional patient UUID' })
+  @IsOptional()
+  @IsString()
+  patientId?: string;
 }
 
 export class CreateClinicalNoteDto {
@@ -76,6 +89,50 @@ export class CreateClinicalNoteDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+}
+
+export class CreateEncounterNoteBodyDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID('4')
+  referralId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  noteType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  subjective?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  objective?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  assessment?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  plan?: string;
+}
+
+export class SignEncounterNoteDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  signatureCredentials?: string;
 }
 
 export class UpdateClinicalNoteDto {

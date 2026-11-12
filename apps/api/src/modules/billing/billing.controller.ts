@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -120,6 +121,19 @@ export class BillingController {
   @ApiParam({ name: 'id', description: 'Claim UUID' })
   @ApiResponse({ status: 200, description: 'Adjudication recorded and referral lifecycle updated' })
   async adjudicateClaim(
+    @Param('id') id: string,
+    @Body() dto: AdjudicateClaimDto,
+    @CurrentUser() user: AuthTokenPayload,
+  ) {
+    return this.billingService.adjudicateClaim(id, dto, user);
+  }
+
+  @Patch('claims/:id/adjudicate')
+  @Roles(UserRole.BILLING_COORDINATOR, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Record claim adjudication via PATCH (alias)' })
+  @ApiParam({ name: 'id', description: 'Claim UUID' })
+  @ApiResponse({ status: 200, description: 'Adjudication recorded and referral lifecycle updated' })
+  async adjudicateClaimPatch(
     @Param('id') id: string,
     @Body() dto: AdjudicateClaimDto,
     @CurrentUser() user: AuthTokenPayload,

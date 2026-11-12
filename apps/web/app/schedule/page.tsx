@@ -51,13 +51,25 @@ export default function SchedulePage() {
     mutationFn: async () => {
       const ref = schedulingQueue.find((r: any) => r.id === selectedReferralId);
       if (!ref) throw new Error('Please select a valid referral');
+      if (!appointmentDate) throw new Error('Please select an appointment date & time');
+
+      const [datePart, timePart] = appointmentDate.split('T');
+      let scheduledTime = '09:00 AM';
+      if (timePart) {
+        const [hStr, mStr] = timePart.split(':');
+        const h = parseInt(hStr, 10);
+        const m = (mStr || '00').slice(0, 2);
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        scheduledTime = `${String(h12).padStart(2, '0')}:${m} ${period}`;
+      }
 
       return apiClient.post('/appointments', {
         referralId: ref.id,
-        patientId: ref.patientId,
-        appointmentDate,
+        scheduledDate: datePart,
+        scheduledTime,
         location,
-        notes,
+        ...(notes.trim() && { notes: notes.trim() }),
       });
     },
     onSuccess: () => {
@@ -65,6 +77,7 @@ export default function SchedulePage() {
       setIsBookingOpen(false);
       setSelectedReferralId('');
       setAppointmentDate('');
+      setNotes('');
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
     },
@@ -75,8 +88,14 @@ export default function SchedulePage() {
 
   // Update Appointment Status Mutation
   const updateStatusMutation = useMutation({
-    mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) =>
-      apiClient.patch(`/appointments/${id}/status`, { status, notes }),
+    mutationFn: ({ id, status, notes }: { id: string; status: string; notes?: string }) => {
+      if (status === 'CONFIRMED') {
+        return apiClient.patch(`/appointments/${id}/confirm`, { ...(notes && { notes }) });
+      }
+      return apiClient.patch(`/appointments/${id}/cancel`, {
+        reason: notes || (status === 'NO_SHOW' ? 'Patient no-show' : 'Appointment cancelled'),
+      });
+    },
     onSuccess: (data, variables) => {
       toast.success(`Appointment status updated to ${variables.status}`);
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
@@ -309,27 +328,40 @@ export default function SchedulePage() {
                 />
               ) : (
                 <div className="divide-y divide-border/60">
-                  {appointments.map((apt: any) => (
+                  {appointments.map((apt: any) => {
+                    const aptStatus = apt.status || (apt.cancelledAt ? 'CANCELLED' : apt.confirmedAt ? 'CONFIRMED' : 'SCHEDULED');
+                    const displayDate = apt.appointmentDate
+                      ? new Date(apt.appointmentDate).toLocaleString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : apt.scheduledDate
+                        ? `${new Date(apt.scheduledDate).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            timeZone: 'UTC',
+                          })}${apt.scheduledTime ? ` • ${apt.scheduledTime}` : ''}`
+                        : 'Scheduled';
+                    const trackingNum = apt.referral?.trackingNumber || (apt.referral?.id ? `REF-${apt.referral.id.slice(0, 8).toUpperCase()}` : '');
+
+                    return (
                     <div key={apt.id} className="p-4 hover:bg-muted/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                           <span className="font-semibold text-foreground tabular-nums">
-                            {new Date(apt.appointmentDate).toLocaleString([], {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {displayDate}
                           </span>
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium  ${
-                            apt.status === 'CONFIRMED'
+                            aptStatus === 'CONFIRMED'
                               ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                              : apt.status === 'NO_SHOW'
+                              : aptStatus === 'NO_SHOW' || aptStatus === 'CANCELLED'
                               ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20'
                               : 'bg-muted text-muted-foreground border border-border'
                           }`}>
-                            {apt.status}
+                            {aptStatus}
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-1.5">
@@ -338,7 +370,8 @@ export default function SchedulePage() {
                             <>
                               <span> • </span>
                               <Link href={`/referrals/${apt.referral.id}`} className="hover:underline font-semibold text-primary">
-                                Ref: {apt.referral.trackingNumber}
+                                {apt.referral.patient ? `${apt.referral.patient.firstName} ${apt.referral.patient.lastName} · ` : ''}
+                                Ref: {trackingNum}
                               </Link>
                             </>
                           )}
@@ -348,7 +381,7 @@ export default function SchedulePage() {
                       <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
                         {canSchedule ? (
                           <>
-                            {apt.status === 'SCHEDULED' && (
+                            {aptStatus === 'SCHEDULED' && (
                               <Button
                                 size="sm"
                                 onClick={() => updateStatusMutation.mutate({ id: apt.id, status: 'CONFIRMED' })}
@@ -374,7 +407,8 @@ export default function SchedulePage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -386,7 +420,7 @@ export default function SchedulePage() {
           open={!!apptToMarkNoShow}
           onOpenChange={(open) => !open && setApptToMarkNoShow(null)}
           title="Mark Appointment as No-Show"
-          description={`Marking the visit on ${apptToMarkNoShow?.appointmentDate ? new Date(apptToMarkNoShow.appointmentDate).toLocaleString() : 'scheduled date'} as NO_SHOW sets the referral work status to BLOCKED_NEEDS_INFO for patient outreach.`}
+          description={`Marking the visit on ${(apptToMarkNoShow?.appointmentDate || apptToMarkNoShow?.scheduledDate) ? new Date(apptToMarkNoShow.appointmentDate || apptToMarkNoShow.scheduledDate).toLocaleDateString() : 'scheduled date'} as NO_SHOW sets the referral work status to BLOCKED_NEEDS_INFO for patient outreach.`}
           confirmText="Confirm No-Show"
           cancelText="Cancel"
           variant="warning"
