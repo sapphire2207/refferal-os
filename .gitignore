@@ -70,3 +70,6 @@ out/
 *.tgz
 .eslintcache
 .cache/
+
+storage/
+apps/api/storage/
