@@ -1,0 +1,152 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [0 0 612 792]
+  /Contents 4 0 R
+  /Resources <<
+    /Font <<
+      /F1 5 0 R
+      /F2 6 0 R
+    >>
+  >>
+>>
+endobj
+4 0 obj
+<< /Length 3132 >>
+stream
+BT
+/F1 9 Tf
+50 740 Td
+14 TL
+/F2 11 Tf
+(CEDARS-SINAI MEDICAL CENTER - INPATIENT DISCHARGE & OUTPATIENT REFERRAL) Tj
+T*
+/F1 9 Tf
+(8700 Beverly Blvd, Los Angeles, CA 90048 | Department of Surgery & Wound Care) Tj
+T*
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+/F2 12 Tf
+(PHYSICIAN CLINICAL ORDER & REFERRAL DIRECTIVE) Tj
+T*
+/F1 9 Tf
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(PATIENT DEMOGRAPHICS:) Tj
+T*
+/F1 9 Tf
+(  Full Name:       Marcus Vance                       DOB:   04/12/1958 \(Age 66\)) Tj
+T*
+(  MRN:             MRN-MV-9821                        Gender: Male) Tj
+T*
+(  Phone:           \(310\) 555-0199                     Email: marcus.vance@example.com) Tj
+T*
+(  Address:         1042 Wilshire Blvd, Apt 4B, Los Angeles, CA 90017) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(PAYER / INSURANCE INFORMATION:) Tj
+T*
+/F1 9 Tf
+(  Primary Payer:   Blue Shield of California \(PPO Platinum\)) Tj
+T*
+(  Member ID:       BSC-99238104-01                    Group #: G-88219) Tj
+T*
+(  Subscriber:      Marcus Vance \(Self\)) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(REFERRING CLINICIAN INFORMATION:) Tj
+T*
+/F1 9 Tf
+(  Physician:       Dr. Robert Sterling, MD            NPI:   1487652391) Tj
+T*
+(  Facility:        Cedars-Sinai Inpatient Discharge Unit) Tj
+T*
+(  Direct Phone:    \(310\) 423-5000                     Fax:   \(310\) 423-5001) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(CLINICAL DIAGNOSIS & REASON FOR HOME REFERRAL:) Tj
+T*
+/F1 9 Tf
+(  Primary Diagnosis:    E11.621 - Type 2 diabetes mellitus with foot ulcer) Tj
+T*
+(  Secondary Diagnosis:  L97.422 - Non-pressure chronic ulcer of left heel with fat layer exposed \(Wagner Stage 2\)) Tj
+T*
+(  Clinical Summary:     Patient is a 66-year-old male with chronic non-healing diabetic ulcer on left plantar) Tj
+T*
+(                        heel. Inpatient antibiotic course complete. Discharged to home care under HEALS mobile) Tj
+T*
+(                        nurse practitioner clinical management and mobile debridement protocol.) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(ORDERED SERVICES & CARE PLAN:) Tj
+T*
+/F1 9 Tf
+(  1. Mobile In-Home Evaluation & Management: Level 4 Home Visit \(CPT 99349\) weekly x 4 weeks.) Tj
+T*
+(  2. Active Wound Care Management: Selective Debridement of necrotic devitalized tissue \(CPT 97597\).) Tj
+T*
+(  3. Wound Dressings: Silver alginate dressing with hydrogel border, change every 48 hours.) Tj
+T*
+(  4. Glucose Monitoring: Twice daily fast/postprandial checks; notify provider if > 250 mg/dL.) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(ATTENDING PHYSICIAN ATTESTATION:) Tj
+T*
+/F1 9 Tf
+(  I certify that the outpatient / mobile medical services ordered herein are medically necessary for) Tj
+T*
+(  the treatment of the patient's condition and cannot be safely delivered in an ambulatory clinic setting.) Tj
+T*
+() Tj
+T*
+(  Electronically Signed by: Dr. Robert Sterling, MD \(NPI 1487652391\)) Tj
+T*
+(  Order Date: November 12, 2026 08:30 PST) Tj
+T*
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000019 00000 n 
+0000000068 00000 n 
+0000000125 00000 n 
+0000000293 00000 n 
+0000003476 00000 n 
+0000003544 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3617
+%%EOF

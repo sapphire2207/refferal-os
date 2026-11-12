@@ -182,6 +182,7 @@ export default function ReferralDetailPage() {
       formData.append('file', uploadFile);
       formData.append('referralId', id);
       formData.append('patientId', referral.patientId);
+      formData.append('type', docType);
       formData.append('documentType', docType);
       return apiClient.upload('/documents/upload', formData);
     },
@@ -752,7 +753,7 @@ export default function ReferralDetailPage() {
                           <div>
                             <span className="font-semibold text-foreground">{doc.originalName || doc.originalFilename || 'Document'}</span>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                              <span>Type: {doc.documentType}</span>
+                              <span>Type: {doc.type || doc.documentType}</span>
                               <span>ΓÇó</span>
                               <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
                             </div>

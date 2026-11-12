@@ -368,9 +368,13 @@ export default function NewReferralPage() {
       const userStates = (user as any)?.scopes?.states || (user as any)?.states || [];
       const userLegalEntities = (user as any)?.scopes?.legalEntities || (user as any)?.legalEntities || [];
 
-      const primarySite = userSites.find((s: string) => s !== 'ALL' && s !== '*') || 'main';
+      const primarySite = operatingSite || userSites.find((s: string) => s !== 'ALL' && s !== '*') || 'main';
       const primaryState = userStates.find((s: string) => s !== 'ALL' && s !== '*') || 'CA';
-      const primaryLegalEntity = userLegalEntities.find((e: string) => e !== 'ALL' && e !== '*') || 'heals_main';:apps/web/app/referrals/new/page.tsx
+      const primaryLegalEntity = userLegalEntities.find((e: string) => e !== 'ALL' && e !== '*') || 'heals_main';
+
+      const resolvedSite = primarySite;
+      const resolvedState = primaryState;
+      const resolvedLegalEntity = primaryLegalEntity;
 
       return apiClient.post<{ id: string }>('/referrals', {
         patientId: resolvedPatientId,

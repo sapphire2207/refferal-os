@@ -582,7 +582,7 @@ export class WorkflowService {
       throw new BadRequestException(`Referral must be in INTAKE stage to forward (currently in ${referral.pipelineStage})`);
     }
 
-    if (referral.workStatus === 'PENDING_REVIEW') {
+    if ((referral.workStatus as any) === 'PENDING_REVIEW') {
       throw new BadRequestException('Referral is already pending review');
     }
 
@@ -687,7 +687,7 @@ export class WorkflowService {
       throw new BadRequestException(`Referral must be in CLINICAL_REVIEW stage (currently in ${referral.pipelineStage})`);
     }
 
-    if (referral.workStatus !== 'PENDING_REVIEW') {
+    if ((referral.workStatus as any) !== 'PENDING_REVIEW') {
       throw new BadRequestException(`Referral must be in PENDING_REVIEW status (currently ${referral.workStatus})`);
     }
 

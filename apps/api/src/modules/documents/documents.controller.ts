@@ -47,7 +47,7 @@ export class DocumentsController {
     private readonly rateLimiter: DistributedRateLimiterService,
   ) {}
 
-  @Post()
+  @Post(['', 'upload'])
   @Roles(
     UserRole.INTAKE_SPECIALIST,
     UserRole.CLINICAL_COORDINATOR,

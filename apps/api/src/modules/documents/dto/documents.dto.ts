@@ -15,13 +15,21 @@ export class UploadDocumentDto {
   @IsNotEmpty()
   referralId: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     enum: DocumentType,
     example: DocumentType.REFERRAL_FORM,
   })
+  @IsOptional()
   @IsEnum(DocumentType)
-  @IsNotEmpty()
-  type: DocumentType;
+  type?: DocumentType;
+
+  @ApiPropertyOptional({
+    enum: DocumentType,
+    example: DocumentType.CLINICAL_ORDER,
+  })
+  @IsOptional()
+  @IsEnum(DocumentType)
+  documentType?: DocumentType;
 }
 
 export class VerifyDocumentDto {

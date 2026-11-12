@@ -165,17 +165,19 @@ export class DocumentsService {
 
     await fs.promises.writeFile(filePath, file.buffer);
 
+    const docType = dto.type || (dto as any).documentType || DocumentType.CLINICAL_ORDER;
+
     const isExtractable = [
       DocumentType.REFERRAL_FORM,
       DocumentType.INSURANCE_CARD,
       DocumentType.CLINICAL_ORDER,
       DocumentType.MEDICAL_RECORD,
-    ].includes(dto.type);
+    ].includes(docType);
 
     const doc = await this.prisma.document.create({
       data: {
         referralId: dto.referralId,
-        type: dto.type as any,
+        type: docType as any,
         filename: safeFilename,
         originalFilename: path.basename(file.originalname),
         mimeType: file.mimetype,

@@ -1,0 +1,132 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<<
+  /Type /Page
+  /Parent 2 0 R
+  /MediaBox [0 0 612 792]
+  /Contents 4 0 R
+  /Resources <<
+    /Font <<
+      /F1 5 0 R
+      /F2 6 0 R
+    >>
+  >>
+>>
+endobj
+4 0 obj
+<< /Length 2275 >>
+stream
+BT
+/F1 9 Tf
+50 740 Td
+14 TL
+/F2 11 Tf
+(UCSF HEALTH - POST-ACUTE DISCHARGE & AMBULATORY CARE) Tj
+T*
+/F1 9 Tf
+(505 Parnassus Ave, San Francisco, CA 94143 | Pulmonary Medicine Clinic) Tj
+T*
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+/F2 12 Tf
+(PHYSICIAN CLINICAL ORDER & REFERRAL DIRECTIVE \(URGENT\)) Tj
+T*
+/F1 9 Tf
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(PATIENT DEMOGRAPHICS:) Tj
+T*
+/F1 9 Tf
+(  Full Name:       Elena Rostova                      DOB:   09/18/1972 \(Age 54\)) Tj
+T*
+(  MRN:             MRN-ER-5512                        Gender: Female) Tj
+T*
+(  Phone:           \(415\) 555-0248                     Email: elena.rostova@example.com) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(PAYER / INSURANCE INFORMATION:) Tj
+T*
+/F1 9 Tf
+(  Primary Payer:   Kaiser Permanente Northern California) Tj
+T*
+(  Member ID:       KP-49201948-02                     Group #: K-90123) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(REFERRING CLINICIAN INFORMATION:) Tj
+T*
+/F1 9 Tf
+(  Physician:       Dr. Marcus Lindqvist, MD           NPI:   1841295832) Tj
+T*
+(  Facility:        UCSF Pulmonary Medicine Clinic) Tj
+T*
+(  Direct Phone:    \(415\) 353-1000                     Fax:   \(415\) 353-1001) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(CLINICAL DIAGNOSIS & REASON FOR HOME REFERRAL:) Tj
+T*
+/F1 9 Tf
+(  Primary Diagnosis:    J44.1 - Chronic obstructive pulmonary disease with acute exacerbation) Tj
+T*
+(  Secondary Diagnosis:  I10 - Essential \(primary\) hypertension) Tj
+T*
+(  Clinical Summary:     Recent hospital admission for severe COPD exacerbation. Needs urgent home visit) Tj
+T*
+(                        by Nurse Practitioner for medication reconciliation, oxygen titration, and nebulizer education.) Tj
+T*
+() Tj
+T*
+/F2 9.5 Tf
+(ORDERED SERVICES:) Tj
+T*
+/F1 9 Tf
+(  1. Urgent In-Home NP Clinical Evaluation & Management \(CPT 99349\).) Tj
+T*
+(  2. Home Oxygen Therapy Assessment & O2 Saturation Tracking.) Tj
+T*
+() Tj
+T*
+(  Electronically Signed by: Dr. Marcus Lindqvist, MD \(NPI 1841295832\)) Tj
+T*
+(  Order Date: November 12, 2026 10:15 PST) Tj
+T*
+(----------------------------------------------------------------------------------------------------) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000019 00000 n 
+0000000068 00000 n 
+0000000125 00000 n 
+0000000293 00000 n 
+0000002619 00000 n 
+0000002687 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+2760
+%%EOF
