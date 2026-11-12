@@ -274,6 +274,7 @@ export default function NewReferralPage() {
   const [phone, setPhone] = useState('');
   const [medicalRecordNumber, setMedicalRecordNumber] = useState('');
   const [email, setEmail] = useState('');
+  const createdPatientIdRef = useRef<string | null>(null);
 
   // Existing patient selection
   const [selectedPatient, setSelectedPatient] = useState<PatientResult | null>(null);
@@ -341,26 +342,35 @@ export default function NewReferralPage() {
       if (params?.overridePatientId) {
         resolvedPatientId = params.overridePatientId;
       } else if (patientMode === 'new') {
-        // Only send fields the CreatePatientDto accepts
-        const patientRes = await apiClient.post<{ id: string }>('/patients', {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          dateOfBirth,
-          ...(phone.trim() && { phone: phone.trim() }),
-          ...(email.trim() && { email: email.trim() }),
-          ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
-          ...(params?.forceCreate && { forceCreate: true }),
-        });
-        resolvedPatientId = patientRes.id;
+        if (createdPatientIdRef.current && !params?.forceCreate) {
+          resolvedPatientId = createdPatientIdRef.current;
+        } else {
+          // Only send fields the CreatePatientDto accepts
+          const patientRes = await apiClient.post<{ id: string }>('/patients', {
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            dateOfBirth,
+            ...(phone.trim() && { phone: phone.trim() }),
+            ...(email.trim() && { email: email.trim() }),
+            ...(medicalRecordNumber.trim() && { medicalRecordNumber: medicalRecordNumber.trim() }),
+            ...(params?.forceCreate && { forceCreate: true }),
+          });
+          resolvedPatientId = patientRes.id;
+          createdPatientIdRef.current = patientRes.id;
+        }
       } else {
         if (!selectedPatient) throw new Error('Please select an existing patient.');
         resolvedPatientId = selectedPatient.id;
       }
 
-      // Resolve user's operational location scope from user scopes or state
-      const resolvedSite = operatingSite || allowedSites[0] || undefined;
-      const resolvedState = allowedStates[0] || 'CA';
-      const resolvedLegalEntity = allowedEntities[0] || 'heals_main';
+      // Resolve user's operational location scope
+      const userSites = (user as any)?.scopes?.sites || (user as any)?.sites || [];
+      const userStates = (user as any)?.scopes?.states || (user as any)?.states || [];
+      const userLegalEntities = (user as any)?.scopes?.legalEntities || (user as any)?.legalEntities || [];
+
+      const primarySite = userSites.find((s: string) => s !== 'ALL' && s !== '*') || 'main';
+      const primaryState = userStates.find((s: string) => s !== 'ALL' && s !== '*') || 'CA';
+      const primaryLegalEntity = userLegalEntities.find((e: string) => e !== 'ALL' && e !== '*') || 'heals_main';:apps/web/app/referrals/new/page.tsx
 
       return apiClient.post<{ id: string }>('/referrals', {
         patientId: resolvedPatientId,
@@ -375,6 +385,7 @@ export default function NewReferralPage() {
       });
     },
     onSuccess: (data) => {
+      createdPatientIdRef.current = null;
       toast.success('Referral Created Successfully', {
         description: 'Referral is now in INTAKE stage awaiting document verification.',
       });

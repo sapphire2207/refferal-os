@@ -238,13 +238,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current authenticated user profile and scopes' })
   @ApiResponse({ status: 200, description: 'User profile' })
   async me(@CurrentUser() user: AuthTokenPayload) {
-    return {
-      user: {
-        ...user,
-        sites: user.scopes?.sites || [],
-        states: user.scopes?.states || [],
-        legalEntities: user.scopes?.legalEntities || [],
-      },
-    };
+    const profile = await this.authService.getProfile(user.userId);
+    return { user: profile };
   }
 }

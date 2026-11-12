@@ -246,7 +246,7 @@ export function ReferralDrawer({
               <DialogDescription className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                 <span>{mrn}</span>
                 <span>•</span>
-                <span className="font-semibold uppercase text-foreground">{referral.site || 'Site-A'}</span>
+                <span className="font-semibold uppercase text-foreground">{referral.site || 'main'}</span>
                 <span>•</span>
                 <span>Territory: {referral.state || 'FL'}</span>
               </DialogDescription>

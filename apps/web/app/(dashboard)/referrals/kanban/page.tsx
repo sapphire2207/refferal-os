@@ -833,7 +833,7 @@ export default function ReferralsPage() {
                           {/* Site */}
                           <td className="py-3 px-3">
                             <span className="text-[10px] font-semibold uppercase text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
-                              {r.site || 'Site-A'}
+                              {r.site || 'main'}
                             </span>
                           </td>
 
@@ -1246,7 +1246,7 @@ function KanbanDraggableCard({
           <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2">
             <span className="font-medium text-muted-foreground">{mrn}</span>
             <span>•</span>
-            <span className="font-semibold uppercase text-muted-foreground">{referral.site || 'Site-A'}</span>
+            <span className="font-semibold uppercase text-muted-foreground">{referral.site || 'main'}</span>
           </div>
         </div>
       </div>

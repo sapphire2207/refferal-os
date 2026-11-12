@@ -654,6 +654,50 @@ export class AuthService {
     return sessionId;
   }
 
+
+  /**
+   * Retrieves full user profile including demographic details, roles, and scopes.
+   */
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: true,
+        userScopes: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const roles = user.userRoles ? user.userRoles.map((ur: any) => ur.role) : [];
+    const scopes = {
+      sites: user.userScopes
+        ? ([...new Set(user.userScopes.map((us: any) => us.site).filter(Boolean))] as string[])
+        : [],
+      states: user.userScopes
+        ? ([...new Set(user.userScopes.map((us: any) => us.state).filter(Boolean))] as string[])
+        : [],
+      legalEntities: user.userScopes
+        ? ([...new Set(user.userScopes.map((us: any) => us.legalEntity).filter(Boolean))] as string[])
+        : [],
+    };
+
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roles,
+      scopes,
+      sites: scopes.sites,
+      states: scopes.states,
+      legalEntities: scopes.legalEntities,
+      mfaEnabled: user.mfaEnabled || false,
+    };
+  }
+
   async hashPassword(password: string): Promise<string> {
     const rounds = parseInt(this.configService.get('BCRYPT_ROUNDS', '12'));
     return bcrypt.hash(password, rounds);
