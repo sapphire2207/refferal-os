@@ -260,9 +260,16 @@ export default function ReferralsPage() {
       );
     },
     onMutate: async ({ id, targetStage }) => {
+      // 1. Cancel any outgoing refetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({ queryKey: ['referrals-pipeline'] });
-      const previousData = queryClient.getQueryData(['referrals-pipeline']);
 
+      // 2. Snapshot all query cache entries matching ['referrals-pipeline']
+      const previousSnapshots = queryClient.getQueriesData<{
+        data: ReferralRecord[];
+        total: number;
+      }>({ queryKey: ['referrals-pipeline'] });
+
+      // 3. Optimistically update all matching cache entries
       queryClient.setQueriesData({ queryKey: ['referrals-pipeline'] }, (old: any) => {
         if (!old?.data) return old;
         return {
@@ -273,19 +280,26 @@ export default function ReferralsPage() {
         };
       });
 
-      return { previousData };
+      // 4. Return context containing the exact previous snapshots for instant rollback
+      return { previousSnapshots };
     },
     onError: (err: any, variables, context) => {
-      if (context?.previousData) {
-        queryClient.setQueriesData({ queryKey: ['referrals-pipeline'] }, context.previousData);
+      // 1. Immediately and synchronously revert all matching query caches to their snapshotted state
+      if (context?.previousSnapshots) {
+        context.previousSnapshots.forEach(([queryKey, snapshotData]) => {
+          queryClient.setQueryData(queryKey, snapshotData);
+        });
       }
+
+      // 2. Always invalidate queries to ensure authoritative synchronization with the server
+      queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
 
       if (err?.status === 409) {
         toast.warning('Concurrent Modification Detected', {
           description:
             'Another clinician recently modified this referral. The board has been updated with fresh data.',
         });
-        queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
         return;
       }
 
@@ -295,6 +309,11 @@ export default function ReferralsPage() {
     },
     onSuccess: (result, variables) => {
       toast.success(`Referral moved to ${variables.targetStage.replace('_', ' ')}`);
+      queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['referrals'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['referrals-pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-metrics'] });

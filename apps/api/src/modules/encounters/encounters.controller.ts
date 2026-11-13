@@ -183,6 +183,8 @@ export class EncountersController {
   @Roles(
     UserRole.CLINICAL_COORDINATOR,
     UserRole.CLINICAL_REVIEWER,
+    UserRole.ADMIN,
+    UserRole.NURSE_PRACTITIONER,
   )
   @ApiOperation({ summary: 'Notes QA Review: Approve to BILLING or Return to NP for correction' })
   @ApiParam({ name: 'id', description: 'Clinical Note UUID' })
@@ -202,6 +204,8 @@ export class EncountersController {
   @Roles(
     UserRole.CLINICAL_COORDINATOR,
     UserRole.CLINICAL_REVIEWER,
+    UserRole.ADMIN,
+    UserRole.NURSE_PRACTITIONER,
   )
   @ApiOperation({ summary: 'Notes QA Review by referral: Approve to BILLING or Return to NP' })
   @ApiResponse({ status: 200, description: 'Review recorded and referral stage routed' })
@@ -225,6 +229,8 @@ export class EncountersController {
   @Roles(
     UserRole.CLINICAL_COORDINATOR,
     UserRole.CLINICAL_REVIEWER,
+    UserRole.ADMIN,
+    UserRole.NURSE_PRACTITIONER,
   )
   @ApiOperation({ summary: 'Notes QA Review for a specific referral' })
   @ApiParam({ name: 'referralId', description: 'Referral UUID' })

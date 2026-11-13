@@ -63,7 +63,7 @@ export default function ReferralDetailPage() {
 
   const handleDownloadDoc = async (doc: any) => {
     try {
-      toast.info('Starting document downloadΓÇª');
+      toast.info('Starting document download...');
       await apiClient.downloadBlob(
         `/documents/${doc.id}/download`,
         doc.originalFilename || doc.originalName || 'document',
@@ -238,7 +238,7 @@ export default function ReferralDetailPage() {
     return (
       <AppLayout title="Referral Details">
         <div className="space-y-6 max-w-6xl mx-auto py-8">
-          <LoadingState message="Loading clinical referral details and gate historyΓÇª" />
+          <LoadingState message="Loading clinical referral details and gate history..." />
         </div>
       </AppLayout>
     );
@@ -261,6 +261,15 @@ export default function ReferralDetailPage() {
   const isTerminal =
     referral.workStatus === WorkStatus.REJECTED ||
     ['REJECTED', 'CLOSED', 'DISCHARGED', 'PATIENT_DECLINED', 'DUPLICATE'].includes(referral.caseOutcome);
+
+  const formattedDob = referral.patient?.dateOfBirth
+    ? new Date(referral.patient.dateOfBirth).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'UTC',
+      })
+    : 'N/A';
 
   // 6-Gate Sequence for Visual Stepper
   const workflowGates = [
@@ -297,8 +306,14 @@ export default function ReferralDetailPage() {
               </button>
               <PriorityBadge priority={referral.priority} />
             </div>
-            <PageHeaderDescription className="tabular-nums">
-              DOB: {referral.patient?.dateOfBirth || 'N/A'} ΓÇó MRN: {referral.patient?.mrn || 'N/A'} ΓÇó Site: {referral.site} ({referral.state}) ΓÇó Ledger Version: v{referral.version}
+            <PageHeaderDescription className="tabular-nums flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span>DOB: {formattedDob}</span>
+              <span className="text-muted-foreground/60">•</span>
+              <span>MRN: {referral.patient?.medicalRecordNumber || referral.patient?.mrn || 'N/A'}</span>
+              <span className="text-muted-foreground/60">•</span>
+              <span>Site: {referral.site} ({referral.state})</span>
+              <span className="text-muted-foreground/60">•</span>
+              <span>Ledger Version: v{referral.version}</span>
             </PageHeaderDescription>
           </div>
 
@@ -588,10 +603,10 @@ export default function ReferralDetailPage() {
                   <Input
                     placeholder={
                       reviewDecision === ClinicalReviewDecision.ACCEPT
-                        ? 'Enter clinical acceptance justification or care plan notes (optional)ΓÇª'
+                        ? 'Enter clinical acceptance justification or care plan notes (optional)...'
                         : reviewDecision === ClinicalReviewDecision.RETURN
-                        ? 'Mandatory: specify what clinical order or document Intake must obtainΓÇª'
-                        : 'Mandatory: document medical ineligibility or service area rationaleΓÇª'
+                        ? 'Mandatory: specify what clinical order or document Intake must obtain...'
+                        : 'Mandatory: document medical ineligibility or service area rationale...'
                     }
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
@@ -700,7 +715,7 @@ export default function ReferralDetailPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/40">
                     <span className="text-muted-foreground">Date of Birth:</span>
-                    <span>{referral.patient?.dateOfBirth}</span>
+                    <span>{formattedDob}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/40">
                     <span className="text-muted-foreground">Phone:</span>
@@ -708,7 +723,7 @@ export default function ReferralDetailPage() {
                   </div>
                   <div className="flex justify-between py-1 border-b border-border/40">
                     <span className="text-muted-foreground">MRN:</span>
-                    <span className="">{referral.patient?.mrn || 'N/A'}</span>
+                    <span className="">{referral.patient?.medicalRecordNumber || referral.patient?.mrn || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between py-1">
                     <span className="text-muted-foreground">Address / State:</span>
@@ -799,20 +814,33 @@ export default function ReferralDetailPage() {
                   </div>
                 ) : (
                   <div className="divide-y divide-border/60 border border-border/60 rounded-md">
-                    {referral.documents.map((doc: any) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 text-xs">
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <span className="font-semibold text-foreground">{doc.originalName || doc.originalFilename || 'Document'}</span>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
-                              <span>Type: {doc.type || doc.documentType}</span>
-                              <span>ΓÇó</span>
-                              <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
+                    {referral.documents.map((doc: any) => {
+                      const uploadedRaw = doc.uploadedAt || doc.createdAt;
+                      const uploadedDate = uploadedRaw ? new Date(uploadedRaw) : null;
+                      const uploadedFormatted = uploadedDate && !isNaN(uploadedDate.getTime())
+                        ? uploadedDate.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : 'Recently';
+
+                      return (
+                        <div key={doc.id} className="flex items-center justify-between p-3 text-xs">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <span className="font-semibold text-foreground">
+                                {doc.originalFilename || doc.originalName || doc.filename || 'Document'}
+                              </span>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                                <span>Type: {doc.type || doc.documentType}</span>
+                                <span className="text-muted-foreground/60">•</span>
+                                <span>Uploaded: {uploadedFormatted}</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[10px]">
                             {doc.verified ? 'Verified' : 'Pending Verification'}
                           </Badge>
@@ -838,7 +866,8 @@ export default function ReferralDetailPage() {
                           )}
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 )}
               </CardContent>

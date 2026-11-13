@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { EmptyState, LoadingState } from '@/components/ui/state-views';
-import { Stethoscope, CheckCircle, Loader2, ShieldCheck, PenTool, RefreshCw, Lock } from 'lucide-react';
+import { Stethoscope, CheckCircle, Loader2, ShieldCheck, PenTool, RefreshCw, Lock, RotateCcw } from 'lucide-react';
 import { PipelineStage } from '@heals/types';
 import { toast } from 'sonner';
 
@@ -40,6 +40,33 @@ export default function VisitsPage() {
   });
 
   const visitQueue = extractApiList<any>(visitsData);
+
+  // Fetch detailed referral to populate previous notes if returned for correction
+  const { data: referralDetail } = useQuery<any>({
+    queryKey: ['referral-visit-detail', selectedReferral?.id],
+    queryFn: () => apiClient.get<any>(`/referrals/${selectedReferral.id}`),
+    enabled: !!selectedReferral?.id,
+  });
+
+  React.useEffect(() => {
+    if (referralDetail?.clinicalNotes?.[0]?.content) {
+      const content = referralDetail.clinicalNotes[0].content;
+      const subjMatch = content.match(/Subjective:\s*([\s\S]*?)(?=(Objective:|Assessment:|Plan:|Attestation:|$))/i);
+      const objMatch = content.match(/Objective:\s*([\s\S]*?)(?=(Subjective:|Assessment:|Plan:|Attestation:|$))/i);
+      const assessMatch = content.match(/Assessment:\s*([\s\S]*?)(?=(Subjective:|Objective:|Plan:|Attestation:|$))/i);
+      const planMatch = content.match(/Plan:\s*([\s\S]*?)(?=(Subjective:|Objective:|Assessment:|Attestation:|$))/i);
+      const attestMatch = content.match(/Attestation:\s*([\s\S]*?)$/i);
+
+      if (subjMatch && subjMatch[1].trim()) setSubjective(subjMatch[1].trim());
+      if (objMatch && objMatch[1].trim()) setObjective(objMatch[1].trim());
+      if (assessMatch && assessMatch[1].trim()) setAssessment(assessMatch[1].trim());
+      if (planMatch && planMatch[1].trim()) setPlan(planMatch[1].trim());
+      if (attestMatch && attestMatch[1].trim()) setSignature(attestMatch[1].trim());
+    }
+  }, [referralDetail]);
+
+  const returnReason =
+    referralDetail?.workflowTransitions?.find((t: any) => t.toStage === 'NP_VISIT' && t.reason)?.reason;
 
   // Create Encounter & Submit Note Mutation
   const submitEncounterMutation = useMutation({
@@ -164,7 +191,12 @@ export default function VisitsPage() {
                           </span>
                         </div>
                         <div className="text-[11px] text-muted-foreground mt-1">
-                          <span>DOB: {ref.patient?.dateOfBirth || 'N/A'}</span>
+                          <span>
+                            DOB:{' '}
+                            {ref.patient?.dateOfBirth
+                              ? new Date(ref.patient.dateOfBirth).toLocaleDateString('en-US', { timeZone: 'UTC' })
+                              : 'N/A'}
+                          </span>
                           <span> • </span>
                           <span>Site: {ref.site}</span>
                         </div>
@@ -208,6 +240,16 @@ export default function VisitsPage() {
                 />
               ) : (
                 <div className="space-y-4">
+                  {returnReason && (
+                    <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs">
+                      <span className="font-bold flex items-center gap-1.5">
+                        <RotateCcw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        Returned by QA for Clinical Correction:
+                      </span>
+                      <p className="mt-1 opacity-90 pl-5">{returnReason}</p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="dos" className="text-xs font-medium text-foreground">Date of Service *</Label>

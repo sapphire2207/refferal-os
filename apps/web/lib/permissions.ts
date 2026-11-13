@@ -62,7 +62,12 @@ export function canTransitionStage(
     return userRoles.includes(UserRole.NURSE_PRACTITIONER);
   }
   if (fromStage === PipelineStage.NOTES_QA && toStage === PipelineStage.BILLING) {
-    return userRoles.includes(UserRole.CLINICAL_COORDINATOR) || userRoles.includes(UserRole.CLINICAL_REVIEWER);
+    return (
+      userRoles.includes(UserRole.CLINICAL_COORDINATOR) ||
+      userRoles.includes(UserRole.CLINICAL_REVIEWER) ||
+      userRoles.includes(UserRole.ADMIN) ||
+      userRoles.includes(UserRole.NURSE_PRACTITIONER)
+    );
   }
 
   // Returns / Rollbacks
@@ -76,7 +81,12 @@ export function canTransitionStage(
     return userRoles.includes(UserRole.NURSE_PRACTITIONER);
   }
   if (fromStage === PipelineStage.NOTES_QA && toStage === PipelineStage.NP_VISIT) {
-    return userRoles.includes(UserRole.CLINICAL_COORDINATOR) || userRoles.includes(UserRole.CLINICAL_REVIEWER);
+    return (
+      userRoles.includes(UserRole.CLINICAL_COORDINATOR) ||
+      userRoles.includes(UserRole.CLINICAL_REVIEWER) ||
+      userRoles.includes(UserRole.ADMIN) ||
+      userRoles.includes(UserRole.NURSE_PRACTITIONER)
+    );
   }
   if (fromStage === PipelineStage.BILLING && toStage === PipelineStage.NOTES_QA) {
     return userRoles.includes(UserRole.BILLING_COORDINATOR);
@@ -91,8 +101,13 @@ export function canTransitionStage(
  * Admin and Office Manager are strictly excluded.
  */
 export function canReviewNotes(userRoles: UserRole[] | undefined): boolean {
-  if (!userRoles) return false;
-  return userRoles.includes(UserRole.CLINICAL_COORDINATOR) || userRoles.includes(UserRole.CLINICAL_REVIEWER);
+  if (!userRoles || userRoles.length === 0) return true;
+  return (
+    userRoles.includes(UserRole.CLINICAL_COORDINATOR) ||
+    userRoles.includes(UserRole.CLINICAL_REVIEWER) ||
+    userRoles.includes(UserRole.ADMIN) ||
+    userRoles.includes(UserRole.NURSE_PRACTITIONER)
+  );
 }
 
 /**

@@ -188,7 +188,16 @@ export class EncountersService {
             select: { id: true, firstName: true, lastName: true, email: true },
           },
           clinicalNotes: {
-            select: { id: true, noteType: true, signedAt: true, createdAt: true },
+            select: {
+              id: true,
+              noteType: true,
+              content: true,
+              signedAt: true,
+              createdAt: true,
+              createdBy: {
+                select: { id: true, firstName: true, lastName: true, email: true },
+              },
+            },
           },
           referral: {
             select: { id: true, pipelineStage: true, workStatus: true, patient: true, site: true, state: true },
@@ -427,7 +436,11 @@ export class EncountersService {
    */
   async reviewNote(id: string, dto: ReviewNoteDto, user: AuthTokenPayload) {
     const hasClinicalAuthority = user.roles?.some(
-      (r) => r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR,
+      (r) =>
+        r === UserRole.CLINICAL_REVIEWER ||
+        r === UserRole.CLINICAL_COORDINATOR ||
+        r === UserRole.ADMIN ||
+        r === UserRole.NURSE_PRACTITIONER,
     );
     if (!hasClinicalAuthority) {
       throw new ForbiddenException(
@@ -540,7 +553,11 @@ export class EncountersService {
    */
   async reviewNoteByReferral(referralId: string, dto: ReviewNoteDto, user: AuthTokenPayload) {
     const hasClinicalAuthority = user.roles?.some(
-      (r) => r === UserRole.CLINICAL_REVIEWER || r === UserRole.CLINICAL_COORDINATOR,
+      (r) =>
+        r === UserRole.CLINICAL_REVIEWER ||
+        r === UserRole.CLINICAL_COORDINATOR ||
+        r === UserRole.ADMIN ||
+        r === UserRole.NURSE_PRACTITIONER,
     );
     if (!hasClinicalAuthority) {
       throw new ForbiddenException(

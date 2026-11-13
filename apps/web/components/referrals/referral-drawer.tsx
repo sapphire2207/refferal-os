@@ -81,6 +81,7 @@ export function ReferralDrawer({
   isAdvancing,
 }: ReferralDrawerProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'comments' | 'documents' | 'workflow'>('overview');
   const [commentText, setCommentText] = useState('');
   const [documentToDelete, setDocumentToDelete] = useState<any | null>(null);
@@ -129,7 +130,6 @@ export function ReferralDrawer({
 
   if (!referral) return null;
 
-  const { user } = useAuth();
   const nextStage = referral.pipelineStage ? getNextStage(referral.pipelineStage) : null;
   const prevStage = referral.pipelineStage ? getPrevStage(referral.pipelineStage) : null;
 

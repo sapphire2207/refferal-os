@@ -160,6 +160,44 @@ export class ReferralsService {
           take: 10,
         },
         documents: true,
+        clinicalNotes: {
+          include: {
+            createdBy: {
+              select: { id: true, firstName: true, lastName: true, email: true },
+            },
+            signedBy: {
+              select: { id: true, firstName: true, lastName: true, email: true },
+            },
+            reviews: {
+              include: {
+                reviewer: {
+                  select: { id: true, firstName: true, lastName: true, email: true },
+                },
+              },
+              orderBy: { reviewedAt: 'desc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        encounters: {
+          include: {
+            nursePractitioner: {
+              select: { id: true, firstName: true, lastName: true, email: true },
+            },
+            clinicalNotes: {
+              include: {
+                createdBy: {
+                  select: { id: true, firstName: true, lastName: true, email: true },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        appointments: {
+          orderBy: { scheduledDate: 'desc' },
+        },
       },
     });
 
@@ -185,6 +223,10 @@ export class ReferralsService {
 
     if (referral.coverageNotes && !(referral as any).notes) {
       (referral as any).notes = referral.coverageNotes;
+    }
+
+    if (referral.encounters && referral.encounters.length > 0 && !(referral as any).encounter) {
+      (referral as any).encounter = referral.encounters[0];
     }
 
     return referral;
