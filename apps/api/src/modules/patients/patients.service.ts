@@ -263,7 +263,10 @@ export class PatientsService {
 
     this.logger.log(`Created new patient record ID: ${patient.id} (${patient.firstName} ${patient.lastName})`);
 
-    return patient;
+    return {
+      ...patient,
+      mrn: patient.medicalRecordNumber || (patient as any).mrn,
+    };
   }
 
   /**
@@ -362,7 +365,10 @@ export class PatientsService {
     ]);
 
     return {
-      data,
+      data: data.map((p) => ({
+        ...p,
+        mrn: p.medicalRecordNumber || (p as any).mrn,
+      })),
       total,
       page,
       limit,
@@ -409,7 +415,10 @@ export class PatientsService {
       );
     }
 
-    return patient;
+    return {
+      ...patient,
+      mrn: patient.medicalRecordNumber || (patient as any).mrn,
+    };
   }
 
   /**

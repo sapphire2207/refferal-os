@@ -24,9 +24,11 @@ interface Patient {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
-  mrn: string;
+  mrn?: string;
+  medicalRecordNumber?: string;
   email: string | null;
   phone: string | null;
+  state?: string | null;
   createdAt: string;
 }
 
@@ -80,11 +82,11 @@ export default function PatientsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Patient Name & Profile</TableHead>
                 <TableHead>MRN</TableHead>
                 <TableHead>Date of Birth</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Contact Phone</TableHead>
+                <TableHead>Site / Territory</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -102,26 +104,44 @@ export default function PatientsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                patients.map((patient) => (
-                  <TableRow key={patient.id}>
-                    <TableCell className="font-medium">
-                      {patient.firstName} {patient.lastName}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{patient.mrn}</TableCell>
-                    <TableCell>{new Date(patient.dateOfBirth).toLocaleDateString()}</TableCell>
-                    <TableCell>{patient.phone || 'N/A'}</TableCell>
-                    <TableCell>{patient.email || 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/patients/${patient.id}`)}
-                      >
-                        View
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                patients.map((patient) => {
+                  const mrn = patient.mrn || patient.medicalRecordNumber || 'N/A';
+                  return (
+                    <TableRow key={patient.id} className="hover:bg-muted/40 transition-colors">
+                      <TableCell className="font-medium">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/patients/${patient.id}`)}
+                          className="font-semibold text-primary hover:underline text-left cursor-pointer"
+                        >
+                          {patient.firstName} {patient.lastName}
+                        </button>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs font-semibold">{mrn}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(patient.dateOfBirth).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {patient.phone || 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[11px] px-1.5 py-0.5">
+                          {patient.state || 'CA'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => router.push(`/patients/${patient.id}`)}
+                          className="text-xs text-primary hover:text-primary font-medium"
+                        >
+                          View Chart →
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

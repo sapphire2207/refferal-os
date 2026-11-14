@@ -21,7 +21,7 @@ import {
   AuthTokenPayload,
   UserRole,
 } from '@heals/types';
-import { Prisma, Referral, WorkflowTransition } from '@prisma/client';
+import { Prisma, Referral, WorkflowTransition, NotificationType } from '@prisma/client';
 import { TransitionRequestDto } from '../dto/transition-request.dto';
 import {
   TransitionResultDto,
@@ -410,6 +410,23 @@ export class WorkflowService {
 
     // 7. Post-Commit Actions: Cache Invalidation & Idempotency Storage
     await this.postCommitActions(referralId, request.idempotencyKey, requestHash, result);
+
+    // Create in-app operational notification
+    try {
+      const tracking = `REF-${referralId.slice(0, 8).toUpperCase()}`;
+      await this.prisma.notification.create({
+        data: {
+          userId: user.userId,
+          type: NotificationType.REVIEW_REQUIRED,
+          title: `Referral ${tracking} moved to ${transactionResult.transitionRecord.toStage}`,
+          message: `Referral transitioned from ${transactionResult.transitionRecord.fromStage} to ${transactionResult.transitionRecord.toStage}. Reason: ${request.reason || 'Authoritative workflow progression'}.`,
+          referralId,
+          read: false,
+        },
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to create transition notification: ${err.message}`);
+    }
 
     const latencyMs = Date.now() - startTime;
     this.logger.log(

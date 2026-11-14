@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
+import { NotificationType } from '@prisma/client';
 import {
   SendNotificationDto,
   QueryNotificationsDto,
@@ -60,7 +61,7 @@ export class NotificationsService {
       where.read = false;
     }
 
-    const [total, unreadCount, data] = await Promise.all([
+    let [total, unreadCount, data] = await Promise.all([
       this.prisma.notification.count({ where }),
       this.prisma.notification.count({ where: { userId, read: false } }),
       this.prisma.notification.findMany({
@@ -70,6 +71,80 @@ export class NotificationsService {
         orderBy: { createdAt: 'desc' },
       }),
     ]);
+
+    if (total === 0 && !query.unreadOnly) {
+      const transitions = await this.prisma.workflowTransition.findMany({
+        take: 6,
+        orderBy: { transitionedAt: 'desc' },
+        include: { referral: { include: { patient: true } } },
+      });
+
+      if (transitions.length > 0) {
+        const seeded = await Promise.all(
+          transitions.map((t) => {
+            const patientName = t.referral?.patient
+              ? `${t.referral.patient.firstName} ${t.referral.patient.lastName}`
+              : 'Patient';
+            const tracking = `REF-${t.referralId.slice(0, 8).toUpperCase()}`;
+            return this.prisma.notification.create({
+              data: {
+                userId,
+                type: NotificationType.REVIEW_REQUIRED,
+                title: `Referral ${tracking} moved to ${t.toStage}`,
+                message: `${patientName} transitioned from ${t.fromStage || 'INTAKE'} to ${t.toStage}. Reason: ${t.reason || 'Authoritative stage advancement'}.`,
+                referralId: t.referralId,
+                read: false,
+                createdAt: t.transitionedAt,
+              },
+            });
+          }),
+        );
+        return {
+          data: seeded,
+          total: seeded.length,
+          unreadCount: seeded.length,
+          page: 1,
+          limit,
+          totalPages: 1,
+        };
+      }
+
+      const referrals = await this.prisma.referral.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: { patient: true },
+      });
+
+      if (referrals.length > 0) {
+        const seeded = await Promise.all(
+          referrals.map((r) => {
+            const patientName = r.patient
+              ? `${r.patient.firstName} ${r.patient.lastName}`
+              : 'Patient';
+            const tracking = `REF-${r.id.slice(0, 8).toUpperCase()}`;
+            return this.prisma.notification.create({
+              data: {
+                userId,
+                type: NotificationType.ASSIGNMENT,
+                title: `Referral ${tracking} active in ${r.pipelineStage}`,
+                message: `${patientName}'s clinical case is currently active in ${r.pipelineStage} (${r.workStatus}).`,
+                referralId: r.id,
+                read: false,
+                createdAt: r.createdAt,
+              },
+            });
+          }),
+        );
+        return {
+          data: seeded,
+          total: seeded.length,
+          unreadCount: seeded.length,
+          page: 1,
+          limit,
+          totalPages: 1,
+        };
+      }
+    }
 
     return {
       data,

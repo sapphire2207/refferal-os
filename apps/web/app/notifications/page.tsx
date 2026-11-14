@@ -22,7 +22,11 @@ export default function NotificationsPage() {
     staleTime: 30 * 1000,
   });
 
-  const notifications = extractApiList<any>(data);
+  const rawList = extractApiList<any>(data);
+  const notifications = rawList.map((n) => ({
+    ...n,
+    isRead: Boolean(n.read ?? n.isRead ?? false),
+  }));
 
   const markAllReadMutation = useMutation({
     mutationFn: () => apiClient.patch('/notifications/mark-all-read', {}),

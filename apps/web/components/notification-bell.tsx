@@ -2,18 +2,17 @@
 
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, extractApiList } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Bell, CheckCheck, Loader2, AlertCircle, Info, Calendar } from 'lucide-react';
+import { Bell, CheckCheck, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface NotificationItem {
   id: string;
@@ -22,19 +21,29 @@ interface NotificationItem {
   type: string;
   isRead: boolean;
   createdAt: string;
+  referralId?: string | null;
 }
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
+  const router = useRouter();
 
-  const { data: notifications = [], isLoading } = useQuery<NotificationItem[]>({
+  const { data, isLoading } = useQuery<any>({
     queryKey: ['notifications'],
-    queryFn: async () => {
-      const res = await apiClient.get<{ items: NotificationItem[] }>('/notifications');
-      return res.items || [];
-    },
-    staleTime: 30 * 1000,
+    queryFn: async () => apiClient.get<any>('/notifications'),
+    staleTime: 15 * 1000,
   });
+
+  const rawList = extractApiList<any>(data);
+  const notifications: NotificationItem[] = rawList.map((n) => ({
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    type: n.type,
+    isRead: Boolean(n.read ?? n.isRead ?? false),
+    createdAt: n.createdAt,
+    referralId: n.referralId,
+  }));
 
   const markAllReadMutation = useMutation({
     mutationFn: () => apiClient.patch('/notifications/mark-all-read', {}),
@@ -51,6 +60,15 @@ export function NotificationBell() {
   });
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const handleNotificationClick = (item: NotificationItem) => {
+    if (!item.isRead) {
+      markSingleReadMutation.mutate(item.id);
+    }
+    if (item.referralId) {
+      router.push(`/referrals/${item.referralId}`);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -107,7 +125,7 @@ export function NotificationBell() {
             notifications.slice(0, 10).map((n) => (
               <div
                 key={n.id}
-                onClick={() => !n.isRead && markSingleReadMutation.mutate(n.id)}
+                onClick={() => handleNotificationClick(n)}
                 className={`p-3 text-xs transition-colors cursor-pointer hover:bg-muted/40 ${
                   !n.isRead ? 'bg-muted/20 font-medium' : 'text-muted-foreground'
                 }`}
@@ -127,6 +145,15 @@ export function NotificationBell() {
               </div>
             ))
           )}
+        </div>
+
+        <div className="p-2 border-t border-border/60 text-center bg-muted/20">
+          <Link
+            href="/notifications"
+            className="text-xs font-semibold text-primary hover:underline block py-1"
+          >
+            View All Notifications →
+          </Link>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
